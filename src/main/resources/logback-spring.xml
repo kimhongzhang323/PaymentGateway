@@ -52,6 +52,23 @@
             </pattern>
         </encoder>
     </appender>
+    <!-- Digest Log Appender -->
+    <appender name="DIGEST_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/digest.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/digest-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [${APP_NAME}] DIGEST - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Logger for digest -->
+    <logger name="com.kimpay.payment.digest" level="INFO" additivity="false">
+        <appender-ref ref="DIGEST_FILE"/>
+    </logger>
+
 
     <!-- ==== Application-specific Loggers ==== -->
     <logger name="com.kimpay.payment" level="DEBUG" additivity="false">
