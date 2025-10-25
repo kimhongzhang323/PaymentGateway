@@ -29,18 +29,7 @@ The `maven-dependency-submission-action` was unable to properly parse the multi-
 - ✅ Fixed deprecated `RELEASE` version to specific version `7.11.0`
 - ✅ Changed scope from `compile` to `test` (correct scope for testing libraries)
 
-### 3. Created Alternative CI Workflow
-
-**File:** `.github/workflows/maven-ci-alt.yml`
-
-Features:
-- No dependency submission (completely avoids the forEach error)
-- Test reporting with multiple reporters
-- Build artifact uploads
-- Better caching strategy
-- Can be activated if the primary workflow continues to have issues
-
-### 4. Added Maven Configuration
+### 3. Added Maven Configuration
 
 **File:** `.mvn/maven.config`
 
@@ -49,7 +38,7 @@ Ensures consistent builds across all environments with:
 - Version display (`-V`)
 - Multi-threaded builds (`-T 1C`)
 
-### 5. Created Troubleshooting Guide
+### 4. Created Troubleshooting Guide
 
 **File:** `CI_TROUBLESHOOTING.md`
 
@@ -72,7 +61,7 @@ Complete documentation covering:
 
 ### When you push these changes:
 
-1. **Primary workflow will run** (maven.yml)
+1. **Workflow will run** (maven.yml)
    - Builds all modules successfully
    - Tests will pass
    - If dependency submission fails, workflow still succeeds (due to continue-on-error)
@@ -82,10 +71,7 @@ Complete documentation covering:
    - You can still see all test results
    - Artifacts will be created
    - You can manually check dependencies with `mvn dependency:tree`
-
-3. **To use alternative workflow:**
-   - Rename `maven-ci-alt.yml` to replace `maven.yml`
-   - Or disable the dependency submission step entirely
+   - You can disable the dependency submission step entirely if needed
 
 ## Module Build Order
 
@@ -115,9 +101,8 @@ The reactor now builds in this order:
 
 - ✏️ `.github/workflows/maven.yml` - Fixed dependency submission
 - ✏️ `payment-common/pom.xml` - Removed duplicate dependencies
-- ➕ `.github/workflows/maven-ci-alt.yml` - Alternative workflow
 - ➕ `.mvn/maven.config` - Maven build configuration
-- ➕ `CI_TROUBLESHOOTING.md` - Comprehensive guide
+- ➕ `docs/CI_TROUBLESHOOTING.md` - Comprehensive guide
 
 ---
 

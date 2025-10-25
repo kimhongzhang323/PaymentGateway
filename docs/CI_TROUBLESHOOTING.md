@@ -5,7 +5,7 @@ This document explains the CI/CD setup and how to troubleshoot common issues.
 
 ## Workflows
 
-### 1. maven.yml (Primary CI)
+### maven.yml (CI Workflow)
 - **Purpose**: Main CI workflow with dependency graph submission
 - **Triggers**: Push and PR to main branch
 - **Key Changes**:
@@ -15,13 +15,6 @@ This document explains the CI/CD setup and how to troubleshoot common issues.
   - Added `continue-on-error: true` to prevent workflow failure if dependency submission fails
   - Added conditional to only run dependency submission on push to main (not PRs)
 
-### 2. maven-ci-alt.yml (Alternative CI)
-- **Purpose**: Fallback CI workflow without dependency submission
-- **Features**:
-  - No dependency submission (avoids the forEach error)
-  - Test reporting
-  - Artifact uploads
-  - Better caching strategy
 
 ## Common Issues
 
@@ -30,14 +23,12 @@ This document explains the CI/CD setup and how to troubleshoot common issues.
 **Cause**: The `maven-dependency-submission-action` has trouble parsing multi-module Maven projects.
 
 **Solution**:
-1. The primary workflow (maven.yml) has been updated with:
-   - Latest version of the action (v4)
-   - `continue-on-error: true` to prevent CI failure
-   - Conditional execution (only on main branch pushes)
+The workflow (maven.yml) has been updated with:
+- Latest version of the action (v4)
+- `continue-on-error: true` to prevent CI failure
+- Conditional execution (only on main branch pushes)
 
-2. If the issue persists, you can:
-   - Disable the "Update dependency graph" step in maven.yml
-   - Use the alternative workflow (maven-ci-alt.yml) by renaming it
+If the issue persists, you can disable the "Update dependency graph" step in maven.yml.
 
 ### Issue 2: Module Build Order
 
