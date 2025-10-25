@@ -1,0 +1,8 @@
+payment:
+  encryption:
+    algorithm: AES/GCM/NoPadding
+    aes-key-size: 256
+    iv-size: 12
+    tag-length: 128
+    key-provider: env
+    key-base64: ${PAYMENT_ENCRYPTION_KEY_BASE64:}
