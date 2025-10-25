@@ -11,7 +11,7 @@ This directory contains all project documentation.
 - **[Roadmap.md](Roadmap.md)** - Project roadmap and future plans
 
 ### Security
-- **[SECURITY.md](SECURITY.md)** - Security policy and vulnerability reporting
+- **[SECURITY.md](../SECURITY.md)** - Security policy and vulnerability reporting
 
 ### CI/CD & Build
 - **[MAVEN_CI_FIX_SUMMARY.md](MAVEN_CI_FIX_SUMMARY.md)** - Summary of Maven CI fixes
@@ -25,7 +25,7 @@ This directory contains all project documentation.
 3. Review [CI_TROUBLESHOOTING.md](CI_TROUBLESHOOTING.md) if you encounter build issues
 
 ### For Security Researchers
-- See [SECURITY.md](SECURITY.md) for vulnerability reporting
+- See [SECURITY.md](../SECURITY.md) for vulnerability reporting
 
 ### For DevOps/CI
 - [MAVEN_CI_FIX_SUMMARY.md](MAVEN_CI_FIX_SUMMARY.md) - Recent CI fixes and improvements
