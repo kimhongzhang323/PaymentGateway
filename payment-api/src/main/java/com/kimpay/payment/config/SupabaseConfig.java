@@ -58,12 +58,14 @@ public class SupabaseConfig {
 
         private void validateConfig(SupabaseProperties properties) {
             if (properties.getUrl() == null || properties.getUrl().isEmpty()) {
-                throw new IllegalStateException("Supabase URL is not configured. Set SUPABASE_URL environment variable.");
+                throw new IllegalStateException("Supabase URL is not configured. Set SUPABASE_URL environment variable (e.g., https://<ref>.supabase.co).");
             }
-            if (properties.getApiKey() == null || properties.getApiKey().isEmpty()) {
-                throw new IllegalStateException("Supabase API Key is not configured. Set SUPABASE_ANON_KEY environment variable.");
+            // API keys are optional if you only use JDBC
+            boolean hasAnon = properties.getApiKey() != null && !properties.getApiKey().isEmpty();
+            boolean hasServiceRole = properties.getServiceRoleKey() != null && !properties.getServiceRoleKey().isEmpty();
+            if (!hasAnon && !hasServiceRole) {
+                System.out.println("! Supabase API keys not provided. JDBC will work, but REST/RLS features are disabled.");
             }
-
             // Log configuration (without sensitive data)
             System.out.println("✓ Supabase configured: " + maskUrl(properties.getUrl()));
         }
@@ -82,4 +84,3 @@ public class SupabaseConfig {
         }
     }
 }
-

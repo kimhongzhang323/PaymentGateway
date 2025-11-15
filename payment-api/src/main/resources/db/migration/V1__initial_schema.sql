@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
 -- Add foreign key for wallet_transactions after transactions table exists
 ALTER TABLE wallet_transactions
 ADD CONSTRAINT fk_wallet_transactions_transaction
