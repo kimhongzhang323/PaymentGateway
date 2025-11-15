@@ -39,3 +39,7 @@ build/
 *.env
 !.env.example
 
+### Log Files ###
+*.log
+logs/
+
