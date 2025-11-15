@@ -1,14 +1,9 @@
 package com.kimpay.payment.domain.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.time.LocalDateTime;
 
 /**
  * =============================================================================
@@ -40,15 +35,20 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
+@EqualsAndHashCode(of = "id", callSuper = false)
 @Table(name = "merchants")
-public class Merchant {
+public class Merchant extends AbstractAuditedEntity {
 
     @Id
-    private String merchantId;
-    private String name;
-    private String apiKey;
-    private String secretKey;
-    private boolean active;
-    private LocalDateTime createdAt;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Column(name = "business_name", nullable = false, length = 150)
+    private String businessName;
+
+    @Column(name = "status", nullable = false, length = 30)
+    private String status;
 }

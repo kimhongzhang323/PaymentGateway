@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -43,32 +44,23 @@ public class Transaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "transaction_id", unique = true, nullable = false)
-    private String transactionId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(name = "merchant_id", nullable = false)
-    private String merchantId;
+    private Long merchantId;
 
-    @Column(name = "payment_request_id")
-    private String paymentRequestId;
+    @Column(name = "payment_method_id")
+    private Long paymentMethodId;
 
-    @Column(name = "payment_method", nullable = false)
-    private String paymentMethod;
+    @Column(name = "amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal amount;
 
     @Column(name = "currency", nullable = false, length = 3)
     private String currency;
 
-    @Column(name = "amount", nullable = false)
-    private Double amount;
-
     @Column(name = "status", nullable = false)
     private String status;
-
-    @Column(name = "result_code")
-    private String resultCode;
-
-    @Column(name = "result_message")
-    private String resultMessage;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -86,5 +78,4 @@ public class Transaction {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-
 }

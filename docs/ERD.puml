@@ -1,0 +1,260 @@
+@startuml
+!define Table(name,desc) class name as "desc" << (T,#FFAAAA) >>
+
+' 1. User / Merchant Management
+Table(users, "Users") {
+  +id : int
+  name : string
+  email : string
+  password_hash : string
+  role_id : int
+  created_at : datetime
+  updated_at : datetime
+}
+
+Table(merchants, "Merchants") {
+  +id : int
+  user_id : int
+  business_name : string
+  status : string
+  created_at : datetime
+  updated_at : datetime
+}
+
+Table(roles, "Roles") {
+  +id : int
+  name : string
+  description : string
+}
+
+Table(permissions, "Permissions") {
+  +id : int
+  name : string
+  description : string
+}
+
+Table(role_permissions, "Role Permissions") {
+  +role_id : int
+  +permission_id : int
+}
+
+Table(user_sessions, "User Sessions") {
+  +id : int
+  user_id : int
+  session_token : string
+  ip_address : string
+  expires_at : datetime
+}
+
+Table(merchant_settings, "Merchant Settings") {
+  +id : int
+  merchant_id : int
+  setting_name : string
+  setting_value : string
+}
+
+' 2. Payment Methods & Wallets
+Table(payment_methods, "Payment Methods") {
+  +id : int
+  user_id : int
+  type : string
+  provider : string
+  details : string
+  status : string
+}
+
+Table(wallets, "Wallets") {
+  +id : int
+  user_id : int
+  balance : decimal
+  currency : string
+  created_at : datetime
+}
+
+Table(wallet_transactions, "Wallet Transactions") {
+  +id : int
+  wallet_id : int
+  type : string
+  amount : decimal
+  transaction_id : int
+  created_at : datetime
+}
+
+' 3. Transactions
+Table(transactions, "Transactions") {
+  +id : int
+  user_id : int
+  merchant_id : int
+  payment_method_id : int
+  amount : decimal
+  currency : string
+  status : string
+  created_at : datetime
+}
+
+Table(transaction_logs, "Transaction Logs") {
+  +id : int
+  transaction_id : int
+  event : string
+  message : string
+  timestamp : datetime
+}
+
+Table(transaction_fees, "Transaction Fees") {
+  +id : int
+  transaction_id : int
+  fee_type : string
+  amount : decimal
+}
+
+Table(refunds, "Refunds") {
+  +id : int
+  transaction_id : int
+  amount : decimal
+  status : string
+  reason : string
+  created_at : datetime
+}
+
+' 4. Cards / Tokens / Security
+Table(cards, "Cards") {
+  +id : int
+  user_id : int
+  card_number_masked : string
+  expiry_date : string
+  provider : string
+}
+
+Table(card_tokens, "Card Tokens") {
+  +id : int
+  card_id : int
+  token : string
+  created_at : datetime
+  expires_at : datetime
+}
+
+Table(fraud_alerts, "Fraud Alerts") {
+  +id : int
+  transaction_id : int
+  alert_type : string
+  severity : string
+  status : string
+  created_at : datetime
+}
+
+Table(otp_verifications, "OTP Verifications") {
+  +id : int
+  user_id : int
+  otp_code : string
+  type : string
+  expires_at : datetime
+  status : string
+}
+
+' 5. Bank / Acquirer / Gateway Integration
+Table(bank_accounts, "Bank Accounts") {
+  +id : int
+  merchant_id : int
+  account_number_encrypted : string
+  bank_name : string
+  currency : string
+  status : string
+}
+
+Table(acquirers, "Acquirers") {
+  +id : int
+  name : string
+  api_endpoint : string
+  credentials_encrypted : string
+  status : string
+}
+
+Table(settlements, "Settlements") {
+  +id : int
+  merchant_id : int
+  amount : decimal
+  currency : string
+  status : string
+  processed_at : datetime
+}
+
+Table(payment_gateway_logs, "Payment Gateway Logs") {
+  +id : int
+  transaction_id : int
+  api_endpoint : string
+  request_data : string
+  response_data : string
+  timestamp : datetime
+}
+
+' 6. Currency & Pricing
+Table(currencies, "Currencies") {
+  +code : string
+  name : string
+  symbol : string
+  is_active : boolean
+}
+
+Table(exchange_rates, "Exchange Rates") {
+  +id : int
+  from_currency : string
+  to_currency : string
+  rate : decimal
+  updated_at : datetime
+}
+
+Table(fees, "Fees") {
+  +id : int
+  fee_type : string
+  amount_or_percentage : decimal
+  applicable_to : string
+}
+
+' 7. Reports & Analytics
+Table(reports, "Reports") {
+  +id : int
+  merchant_id : int
+  type : string
+  start_date : date
+  end_date : date
+  data : json
+  generated_at : datetime
+}
+
+Table(audit_logs, "Audit Logs") {
+  +id : int
+  user_id : int
+  action_type : string
+  entity_type : string
+  entity_id : int
+  timestamp : datetime
+}
+
+' Relationships
+users ||--o{ user_sessions
+users ||--o{ payment_methods
+users ||--o{ wallets
+users ||--o{ otp_verifications
+users ||--o{ transactions
+users ||--o{ cards
+users ||--|| roles : "assigned_to"
+roles ||--o{ role_permissions
+permissions ||--o{ role_permissions
+
+merchants ||--o{ merchant_settings
+merchants ||--o{ bank_accounts
+merchants ||--o{ transactions
+merchants ||--o{ settlements
+merchants ||--o{ reports
+
+wallets ||--o{ wallet_transactions
+transactions ||--o{ transaction_logs
+transactions ||--o{ transaction_fees
+transactions ||--o{ refunds
+transactions ||--o{ fraud_alerts
+transactions ||--o{ payment_gateway_logs
+
+cards ||--o{ card_tokens
+exchange_rates ||--|| currencies : "from_to"
+
+@enduml
