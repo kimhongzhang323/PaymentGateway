@@ -33,14 +33,24 @@ import org.slf4j.LoggerFactory;
  */
 @Entity
 @Table(name = "payment_methods")
-public class PaymentMethod {
+public class PaymentMethod extends AbstractCreatedAtEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String code;        // e.g., CARD, GCASH, PAYPAL
-    private String displayName; // Human-readable
-    private boolean enabled;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
+    @Column(nullable = false, length = 50)
+    private String type;
+
+    @Column(nullable = false, length = 80)
+    private String provider;
+
+    @Column(columnDefinition = "text")
+    private String details;
+
+    @Column(nullable = false, length = 30)
+    private String status;
 }

@@ -101,6 +101,7 @@ public class EncryptionService {
             byte[] actualCipherText = new byte[decoded.length - iv.length];
             System.arraycopy(decoded, iv.length, actualCipherText, 0, actualCipherText.length);
 
+            // Initialize cipher for decryption
             Cipher cipher = Cipher.getInstance(transformation);
             SecretKeySpec keySpec = new SecretKeySpec(key, AES);
             GCMParameterSpec gcmSpec = new GCMParameterSpec(taglengthBits, iv);
