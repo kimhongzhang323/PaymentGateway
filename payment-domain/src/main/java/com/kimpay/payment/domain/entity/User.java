@@ -9,7 +9,7 @@ import lombok.Setter;
 @Table(name = "users")
 @Getter
 @Setter
-@EqualsAndHashCode(of = "id")
+@EqualsAndHashCode(of = "id", callSuper = false)
 public class User extends AbstractAuditedEntity {
 
     @Id

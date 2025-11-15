@@ -35,7 +35,7 @@ import lombok.Setter;
 @Entity
 @Getter
 @Setter
-@EqualsAndHashCode(of = "id")
+@EqualsAndHashCode(of = "id", callSuper = false)
 @Table(name = "merchants")
 public class Merchant extends AbstractAuditedEntity {
 

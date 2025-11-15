@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Table(name = "refunds")
 @Getter
 @Setter
-@EqualsAndHashCode(of = "id")
+@EqualsAndHashCode(of = "id", callSuper = false)
 public class Refund extends AbstractCreatedAtEntity {
 
     @Id

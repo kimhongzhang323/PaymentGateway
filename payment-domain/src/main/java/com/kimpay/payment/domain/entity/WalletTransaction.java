@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Table(name = "wallet_transactions")
 @Getter
 @Setter
-@EqualsAndHashCode(of = "id")
+@EqualsAndHashCode(of = "id", callSuper = false)
 public class WalletTransaction extends AbstractCreatedAtEntity {
 
     @Id

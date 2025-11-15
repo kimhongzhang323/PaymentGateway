@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Table(name = "user_sessions")
 @Getter
 @Setter
-@EqualsAndHashCode(of = "id")
+@EqualsAndHashCode(of = "id", callSuper = false)
 public class UserSession extends AbstractCreatedAtEntity {
 
     @Id

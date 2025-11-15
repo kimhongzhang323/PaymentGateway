@@ -9,7 +9,7 @@ import lombok.Setter;
 @Table(name = "cards")
 @Getter
 @Setter
-@EqualsAndHashCode(of = "id")
+@EqualsAndHashCode(of = "id", callSuper = false)
 public class Card extends AbstractCreatedAtEntity {
 
     @Id

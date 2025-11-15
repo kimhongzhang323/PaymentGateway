@@ -9,7 +9,7 @@ import lombok.Setter;
 @Table(name = "transaction_logs")
 @Getter
 @Setter
-@EqualsAndHashCode(of = "id")
+@EqualsAndHashCode(of = "id", callSuper = false)
 public class TransactionLog extends AbstractCreatedAtEntity {
 
     @Id
