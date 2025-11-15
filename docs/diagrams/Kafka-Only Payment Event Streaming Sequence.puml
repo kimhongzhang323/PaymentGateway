@@ -1,0 +1,32 @@
+@startuml
+title Kafka-Only Payment Event Streaming
+
+actor User
+participant "API Gateway" as APIGW
+participant "Payment Service" as PAY
+participant "Kafka Cluster" as KAFKA
+participant "Fraud Detection" as FRAUD
+participant "Accounting Service" as ACC
+participant "Notification Service" as NOTIF
+participant "Database" as DB
+
+== Payment initiated ==
+User -> APIGW : POST /payment
+APIGW -> PAY : Forward payment request
+
+== Payment logical processing ==
+PAY -> DB : Create payment record (pending)
+PAY -> DB : Update payment record (completed)
+
+== Publish events to Kafka ==
+PAY -> KAFKA : Publish payment lifecycle events
+
+== Consumers read same events ==
+KAFKA -> FRAUD : Stream payment events
+KAFKA -> ACC : Stream payment events
+KAFKA -> NOTIF : Stream payment events
+
+== Notifications ==
+NOTIF -> User : Send receipt/confirmations
+
+@enduml

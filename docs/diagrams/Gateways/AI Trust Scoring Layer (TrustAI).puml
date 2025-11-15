@@ -1,0 +1,23 @@
+@startuml
+title [TrustAI] AI Trust Scoring Layer - Persistent Reputation
+
+participant "AI Risk Engine" as AI
+participant "Payment API Gateway" as Gateway
+participant "Auth & Identity Service" as Auth
+participant "Ledger & Settlement Service" as Ledger
+participant "AI Trust Scoring Layer" as TrustAI
+
+== Read path ==
+AI -> TrustAI : request trust(user, merchant, device)
+Auth -> TrustAI : request trust during auth
+TrustAI -> Ledger : pull historic features (txn counts, disputes, velocity)
+TrustAI -> TrustAI : calculate composite trust index (0-100)
+TrustAI --> AI : trust score + trend (increasing/decreasing)
+TrustAI --> Auth : trust guidance (for step-up)
+
+== Update path ==
+Gateway -> TrustAI : notify events (challenge failed, successful txn, dispute)
+TrustAI -> TrustAI : adjust score (penalize/reward)
+TrustAI -> Ledger : persist score changes (for audit)
+TrustAI -> AI : publish trust delta (for model retraining)
+@enduml

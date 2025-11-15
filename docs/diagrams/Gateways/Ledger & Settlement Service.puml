@@ -1,0 +1,28 @@
+@startuml
+title [Ledger] Ledger & Settlement Service - Double-entry & Audit
+
+participant "Payment Orchestration Engine (PayCore)" as PayCore
+participant "Digital Wallet Service" as Wallet
+participant "Ledger & Settlement Service" as Ledger
+participant "BlockChain Settlement Node" as BlockChain
+participant "AI Risk Engine" as AI
+participant "AI Trust Scoring Layer" as TrustAI
+
+== Record transaction ==
+PayCore -> Ledger : createTxn(txn_id, debit, credit, metadata)
+Ledger -> Ledger : double-entry update
+Ledger --> PayCore : txn recorded (pending/success/failed)
+
+== Commit to BlockChain Settlement Node ==
+Ledger -> BlockChain : commit txn hash (immutable anchor)
+BlockChain --> Ledger : on-chain confirmation
+
+== Provide features ==
+AI -> Ledger : request aggregated features (last X txns)
+Ledger --> AI : return anonymized features
+
+== Refund ==
+PayCore -> Ledger : record reversal
+Ledger -> Wallet : if internal, rollback balances (via Wallet)
+Ledger -> TrustAI : emit dispute/outcome event
+@enduml

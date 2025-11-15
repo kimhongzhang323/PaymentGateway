@@ -1,0 +1,37 @@
+@startuml
+title Refund Sequence (RabbitMQ + Kafka)
+
+actor User
+participant "API Gateway" as APIGW
+participant "Refund Service" as REFUND
+participant "RabbitMQ" as RMQ
+participant "Database" as DB
+participant "Payment Gateway" as GATEWAY
+participant "Kafka Cluster" as KAFKA
+participant "Notification Service" as NOTIF
+
+== User requests refund ==
+User -> APIGW : POST /refund
+APIGW -> REFUND : Forward refund request
+
+== Refund queued ==
+REFUND -> RMQ : Publish "process_refund"
+RMQ -> REFUND : Deliver refund job
+
+== External payment gateway ==
+REFUND -> GATEWAY : Request refund
+GATEWAY --> REFUND : Refund Result
+
+== Update database ==
+REFUND -> DB : Update refund status
+
+== Success notification ==
+REFUND -> RMQ : Publish "refund_completed"
+RMQ -> NOTIF : Deliver refund_completed
+NOTIF -> User : Send refund email/SMS
+
+== Event streaming ==
+REFUND -> KAFKA : Publish refund events
+NOTIF -> KAFKA : Publish notification events
+
+@enduml

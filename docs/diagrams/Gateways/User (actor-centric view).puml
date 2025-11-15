@@ -1,0 +1,44 @@
+@startuml
+title [User] Actor Sequence - End-to-End Experience
+
+actor User
+participant "Mobile / Web App" as App
+participant "Payment API Gateway" as Gateway
+participant "Auth & Identity Service" as Auth
+participant "AI Risk Engine" as AI
+participant "AI Trust Scoring Layer" as TrustAI
+participant "Digital Wallet Service" as Wallet
+participant "Ledger & Settlement Service" as Ledger
+
+User -> App : Open app / view balance
+App -> Auth : validate session
+Auth --> App : session OK
+
+User -> App : Send money (amount, receiver)
+App -> Gateway : POST /initiatePayment
+Gateway -> Auth : validate JWT
+Auth --> Gateway : valid
+
+Gateway -> AI : risk check (context)
+AI -> TrustAI : get trust score
+TrustAI --> AI : trust
+AI --> Gateway : risk decision
+
+alt wallet debit path
+  Gateway -> Wallet : request hold/transfer
+  Wallet --> Gateway : held / insufficient
+  Gateway -> Ledger : record pending internal transfer
+else external
+  Gateway -> Ledger : record pending external
+end
+
+User -> App : Check status / receive result
+App -> Ledger : query transaction status
+Ledger --> App : status (confirmed / failed / pending)
+
+User -> App : File dispute (if needed)
+App -> Gateway : POST /refundRequest
+Gateway -> Ledger : process reversal (if eligible)
+Ledger --> User : final outcome (refund processed or rejected)
+
+@enduml

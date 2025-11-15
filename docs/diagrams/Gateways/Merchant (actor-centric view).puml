@@ -1,0 +1,33 @@
+@startuml
+title [Merchant] Actor Sequence - Acceptance & Settlement
+
+actor Merchant
+participant "Mobile / Web App" as App
+participant "Payment API Gateway" as Gateway
+participant "Payment Orchestration Engine (PayCore)" as PayCore
+participant "Multi-Gateway Router" as Router
+participant "Bank Gateway / Card Network" as Bank
+participant "Ledger & Settlement Service" as Ledger
+participant "AI Trust Scoring Layer" as TrustAI
+
+Merchant -> App : Request payout report / settlement status
+App -> PayCore : GET /merchantSettlements
+PayCore -> Ledger : fetch merchant balances
+Ledger --> PayCore : balances / pending
+PayCore --> App : settlement info
+App --> Merchant : show statement
+
+== When payment occurs ==
+User -> App : pay Merchant
+App -> Gateway : POST /initiatePayment (merchant_id)
+Gateway -> PayCore : create txn session
+PayCore -> Router : route to merchant acquirer / wallet
+Router -> Bank : forward to acquirer
+Bank --> Router : approval
+Router --> PayCore : approved
+PayCore -> Ledger : record credited to merchant (pending)
+Ledger --> PayCore : confirmation
+
+PayCore -> TrustAI : feed merchant activity for trust update
+TrustAI --> PayCore : updated merchant trust score (for fees / limits)
+@enduml

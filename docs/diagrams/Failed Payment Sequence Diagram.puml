@@ -1,0 +1,32 @@
+@startuml
+title Failed Payment Sequence (RabbitMQ + Kafka)
+
+actor User
+participant "API Gateway" as APIGW
+participant "Payment Service" as PAY
+participant "RabbitMQ" as RMQ
+participant "Database" as DB
+participant "Notification Service" as NOTIF
+participant "Kafka Cluster" as KAFKA
+
+== User initiates payment ==
+User -> APIGW : POST /payment
+APIGW -> PAY : Forward payment request
+
+== Queue for async processing ==
+PAY -> RMQ : Publish "process_payment"
+RMQ -> PAY : Deliver payment message
+
+== Payment fails ==
+PAY -> DB : Insert/Update status=failed
+PAY -> RMQ : Publish "payment_failed"
+
+== Notification ==
+RMQ -> NOTIF : Deliver "payment_failed"
+NOTIF -> User : Send failure email/SMS
+
+== Event streaming ==
+PAY -> KAFKA : Publish payment_failed event
+NOTIF -> KAFKA : Publish notification event
+
+@enduml

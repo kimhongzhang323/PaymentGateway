@@ -1,0 +1,25 @@
+@startuml
+title [Bank] Bank Gateway / Card Network - Acquirer Interaction
+
+participant "Multi-Gateway Router" as Router
+participant "Bank Gateway / Card Network" as Bank
+participant "Payment Orchestration Engine (PayCore)" as PayCore
+participant "Ledger & Settlement Service" as Ledger
+
+== Authorization ==
+Router -> Bank : authorization request (card, amount, merchant)
+Bank -> Bank : fraud checks, issuer response
+alt authorized
+  Bank --> Router : approval (auth_code)
+  Router --> PayCore : approval
+  PayCore -> Ledger : mark pending settlement
+else declined
+  Bank --> Router : decline (reason)
+  Router --> PayCore : decline
+end
+
+== Capture & Settlement ==
+PayCore -> Bank : capture request (after merchant confirm)
+Bank -> Ledger : settlement file (batch)
+Ledger --> Bank : ack
+@enduml

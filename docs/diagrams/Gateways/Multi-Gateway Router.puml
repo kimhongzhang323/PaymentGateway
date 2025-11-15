@@ -1,0 +1,25 @@
+@startuml
+title [Router] Multi-Gateway Router - Gateway Selection & Failover
+
+participant "Payment Orchestration Engine (PayCore)" as PayCore
+participant "Multi-Gateway Router" as Router
+participant "AI Risk Engine" as AI
+participant "Bank Gateway / Card Network" as Bank
+participant "Payment Orchestration Engine (PayCore)" as PayCore
+
+== Route decision ==
+PayCore -> Router : request best route (txn context, cost prefs)
+Router -> AI : ask routing prediction (latency, success rate)
+AI --> Router : recommended gateway + confidence
+Router -> Router : apply merchant/acquirer rules, cost caps, throttling
+Router -> Bank : forward payment request to chosen acquirer
+Bank --> Router : response (approve/decline/timeout)
+
+alt decline or timeout
+  Router -> Router : pick fallback gateway
+  Router -> Bank : retry with fallback
+  Bank --> Router : response
+end
+
+Router --> PayCore : final gateway result (approved/declined)
+@enduml

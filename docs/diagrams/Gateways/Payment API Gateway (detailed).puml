@@ -1,0 +1,50 @@
+@startuml
+title [Gateway] Payment API Gateway - Validation, Policy & Decisioning
+
+actor User
+participant "Mobile / Web App" as App
+participant "Payment API Gateway" as Gateway
+participant "Auth & Identity Service" as Auth
+participant "Security Intelligence Hub" as SecIntel
+participant "AI Risk Engine" as AI
+participant "AI Trust Scoring Layer" as TrustAI
+participant "Compliance Engine (AML/KYC)" as AML
+participant "Payment Orchestration Engine (PayCore)" as PayCore
+
+== Incoming request ==
+App -> Gateway : POST /initiatePayment (payload + JWT + device tag)
+Gateway -> Auth : validate JWT
+Auth --> Gateway : valid / user metadata
+Gateway -> SecIntel : request device signal (if missing)
+SecIntel --> Gateway : device risk tag
+
+Gateway -> AI : risk check (context)
+AI --> Gateway : risk score + decision vector
+
+alt decision == block
+  Gateway -> App : 403 block (reason)
+  Gateway -> TrustAI : notify penalty
+else decision == challenge
+  Gateway -> Auth : trigger adaptive challenge
+  Auth --> Gateway : result
+  alt failed
+    Gateway -> App : block + reason
+    Gateway -> TrustAI : penalize
+  else passed
+    Gateway -> AML : run AML/KYC
+    AML --> Gateway : clearance
+    Gateway -> PayCore : create transaction session
+  end
+else decision == allow
+  Gateway -> AML : run AML/KYC
+  AML --> Gateway : clearance
+  Gateway -> PayCore : create transaction session
+end
+
+== Refund path ==
+App -> Gateway : POST /refundRequest
+Gateway -> PayCore : validate refund eligibility
+Gateway <-- PayCore : refund accepted / rejected
+Gateway -> App : return status
+
+@enduml

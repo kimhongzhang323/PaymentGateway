@@ -1,0 +1,40 @@
+@startuml
+title [App] Mobile / Web App - Interaction & Client-side checks
+
+actor User
+actor Merchant
+participant "Mobile / Web App" as App
+participant "Payment API Gateway" as Gateway
+participant "Auth & Identity Service" as Auth
+participant "Security Intelligence Hub" as SecIntel
+participant "AI Trust Scoring Layer" as TrustAI
+
+== Login & Session ==
+User -> App : open app
+App -> Auth : request session status
+Auth --> App : session valid? (JWT / details)
+App -> SecIntel : gather device sensors (behaviors, liveness)
+SecIntel --> App : local device integrity token
+
+alt not authenticated
+  User -> App : Login / Register (email, biometrics, 2FA)
+  App -> Auth : submit credentials + biometric token
+  Auth -> SecIntel : request device attestation
+  SecIntel --> Auth : device signal
+  Auth --> App : JWT / session token
+  App --> User : Login success
+end
+
+== Payment Initiation (client) ==
+User -> App : Initiate payment (amount, receiver, note)
+App -> SecIntel : attach device snapshot (fingerprint, sensor hash)
+SecIntel --> App : device risk tag
+App -> Gateway : POST /initiatePayment (payload + device tag + JWT + trust hint)
+App <-- Gateway : immediate ack (txn_id or validation error)
+
+== Refund / Dispute (client) ==
+User -> App : Request refund / dispute (txn_id, reason, attachments)
+App -> Gateway : POST /refundRequest
+App <- Gateway : refund status (accepted / rejected / pending)
+
+@enduml

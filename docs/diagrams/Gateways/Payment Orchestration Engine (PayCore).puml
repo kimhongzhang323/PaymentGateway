@@ -1,0 +1,36 @@
+@startuml
+title [PayCore] Payment Orchestration Engine - Transaction Lifecycle
+
+participant "Payment API Gateway" as Gateway
+participant "Payment Orchestration Engine (PayCore)" as PayCore
+participant "Digital Wallet Service" as Wallet
+participant "Multi-Gateway Router" as Router
+participant "Ledger & Settlement Service" as Ledger
+participant "AI Trust Scoring Layer" as TrustAI
+
+== Create session ==
+Gateway -> PayCore : create transaction session (txn metadata)
+PayCore -> TrustAI : annotate session with trust meta
+TrustAI --> PayCore : trust context
+
+== Hold / Reserve ==
+PayCore -> Wallet : check / hold funds (if wallet)
+alt wallet available
+  Wallet --> PayCore : hold success
+else
+  PayCore -> Router : request route decision (external)
+  Router --> PayCore : route selected
+  PayCore -> Ledger : mark pending external debit
+end
+
+== Finalization ==
+Router -> PayCore : gateway response (approved / failed)
+PayCore -> Ledger : update txn status (success/failed)
+PayCore -> TrustAI : feedback event (for trust update)
+PayCore --> Gateway : return final status to API layer
+
+== Settlement batch ==
+PayCore -> Ledger : request settlement batch report
+Ledger --> PayCore : provide settlement confirmations
+PayCore -> Wallet : release holds (if applicable)
+@enduml

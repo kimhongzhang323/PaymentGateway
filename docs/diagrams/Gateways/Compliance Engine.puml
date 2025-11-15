@@ -1,0 +1,33 @@
+@startuml
+title [AML] Compliance Engine - AML / KYC Screening & Alerts
+
+participant "Payment API Gateway" as Gateway
+participant "Compliance Engine (AML/KYC)" as AML
+participant "Auth & Identity Service" as Auth
+participant "AI Risk Engine" as AI
+participant "Ledger & Settlement Service" as Ledger
+
+== KYC on onboarding / high risk ==
+Auth -> AML : request KYC check (user_id, documents)
+AML -> AML : run checks (watchlists, PEP, sanctions)
+alt suspicious
+  AML --> Auth : KYC rejection / request more info
+else cleared
+  AML --> Auth : KYC approved
+end
+
+== AML on transaction ==
+Gateway -> AML : send transaction for AML screening (amount, parties)
+AML -> AI : may request AI anomaly vector (optional)
+AI --> AML : anomaly signal
+AML -> Ledger : record alert / decision
+alt alert raised
+  AML --> Gateway : require manual review / hold
+else
+  AML --> Gateway : clearance OK
+end
+
+== Auditing ==
+AML -> Ledger : write alerts & evidence for audit
+Ledger --> AML : provide persisted event ids
+@enduml

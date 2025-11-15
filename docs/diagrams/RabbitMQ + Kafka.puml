@@ -1,0 +1,39 @@
+@startuml
+title Payment Processing Sequence (RabbitMQ + Kafka)
+
+actor User
+participant "API Gateway" as APIGW
+participant "Payment Service" as PAY
+participant "RabbitMQ" as RMQ
+participant "Database" as DB
+participant "Notification Service" as NOTIF
+participant "Kafka Cluster" as KAFKA
+participant "Fraud Detection" as FRAUD
+
+== User initiates payment ==
+User -> APIGW : POST /payment
+APIGW -> PAY : Forward payment request
+
+== Payment request is queued ==
+PAY -> RMQ : Publish "process_payment"
+
+RMQ -> PAY : Deliver payment message
+PAY -> DB : Insert payment record\n(status=processing)
+
+== Payment processed successfully ==
+PAY -> DB : Update status=completed
+PAY -> RMQ : Publish "payment_completed"
+
+== Notifications ==
+RMQ -> NOTIF : Deliver "payment_completed"
+NOTIF -> User : Send email/SMS receipt
+
+== Event streaming to Kafka ==
+PAY -> KAFKA : Publish payment event
+NOTIF -> KAFKA : Publish notification event
+
+== Fraud detection using stream ==
+KAFKA -> FRAUD : Stream payment events
+FRAUD -> FRAUD : Analyze behavior/patterns
+
+@enduml

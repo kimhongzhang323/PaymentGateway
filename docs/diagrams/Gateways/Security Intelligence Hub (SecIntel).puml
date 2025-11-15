@@ -1,0 +1,27 @@
+@startuml
+title [SecIntel] Security Intelligence Hub - Device & Environment Trust
+
+participant "Mobile / Web App" as App
+participant "Auth & Identity Service" as Auth
+participant "Payment API Gateway" as Gateway
+participant "Security Intelligence Hub" as SecIntel
+participant "AI Risk Engine" as AI
+
+== Device attestation ==
+App -> SecIntel : submit device telemetry (sensors, OS, app signature, liveness)
+SecIntel -> SecIntel : run device heuristics + on-device ML
+SecIntel -> AI : optional device model sync (for scores)
+
+alt emulator / tamper detected
+  SecIntel --> App : high-risk device token
+  SecIntel --> Auth : high-risk report
+else device clean
+  SecIntel --> App : device attestation token
+  SecIntel --> Auth : normal device report
+end
+
+== Runtime monitoring ==
+App -> SecIntel : periodic heartbeat + behavior stream
+SecIntel -> SecIntel : detect anomalies (SIM swap, rooted device)
+SecIntel --> Gateway : device risk tag (on payment call)
+@enduml

@@ -1,0 +1,37 @@
+@startuml
+title [Auth] Auth & Identity Service - MFA, Session & Adaptive Challenges
+
+actor User
+participant "Mobile / Web App" as App
+participant "Auth & Identity Service" as Auth
+participant "Security Intelligence Hub" as SecIntel
+participant "AI Trust Scoring Layer" as TrustAI
+participant "Payment API Gateway" as Gateway
+
+== Session Validation ==
+App -> Auth : validate JWT / session
+Auth --> App : session valid / expired
+
+== Login Flow ==
+User -> App : login with password/biometric
+App -> Auth : authenticate (creds + biometric token)
+Auth -> SecIntel : request device attestation
+SecIntel --> Auth : device risk vector
+Auth -> TrustAI : pull user trust baseline
+TrustAI --> Auth : trust score
+Auth -> Auth : evaluate adaptive requirement (if trust low or device risky)
+alt require step-up
+  Auth -> App : request MFA / selfie / additional verification
+  App -> Auth : submit step-up result
+  Auth --> App : success/failure
+else
+  Auth --> App : success
+end
+
+== Challenge during payment ==
+Gateway -> Auth : trigger challenge (transaction context)
+Auth -> App : request challenge UI
+App -> Auth : challenge result
+Auth --> Gateway : pass/fail
+
+@enduml

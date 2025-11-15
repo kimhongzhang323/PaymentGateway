@@ -1,0 +1,29 @@
+@startuml
+title [AI] AI Risk Engine - Hybrid Models & Decisioning
+
+participant "Payment API Gateway" as Gateway
+participant "Auth & Identity Service" as Auth
+participant "Security Intelligence Hub" as SecIntel
+participant "AI Trust Scoring Layer" as TrustAI
+participant "AI Risk Engine" as AI
+participant "Ledger & Settlement Service" as Ledger
+
+Gateway -> AI : risk request (txn context, device tag, JWT, payload)
+AI -> Auth : query user identity metadata
+AI -> SecIntel : fetch device detail (if not provided)
+AI -> TrustAI : get trust indexes (user, merchant, device)
+AI -> AI : run hybrid pipeline:
+  - GNN for relational signals
+  - LSTM for behavioral sequences
+  - XGBoost for tabular scoring
+  - IsolationForest for novel anomaly detection
+AI -> AI : ensemble aggregation + calibrated score
+AI -> Ledger : fetch recent txn features (via metadata)
+AI -> AI : optionally run federated weight update (if offline)
+AI --> Gateway : risk_score, explanation vector, recommended action (allow/challenge/block)
+
+== Model update path ==
+Ledger -> AI : provide anonymized labeled events (outcomes)
+AI -> AI : retrain & evaluate
+AI -> TrustAI : push model delta for trust re-calibration
+@enduml

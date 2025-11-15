@@ -1,0 +1,30 @@
+@startuml
+title [Wallet] Digital Wallet Service - Balance, Holds, Instant Settlement
+
+participant "Payment Orchestration Engine (PayCore)" as PayCore
+participant "Digital Wallet Service" as Wallet
+participant "Ledger & Settlement Service" as Ledger
+participant "AI Trust Scoring Layer" as TrustAI
+
+== Check & Hold ==
+PayCore -> Wallet : checkBalance(user_id, amount)
+alt sufficient
+  Wallet -> Wallet : create hold (reserve funds)
+  Wallet -> Ledger : write pending internal movement
+  Wallet --> PayCore : hold success
+else insufficient
+  Wallet --> PayCore : insufficient funds
+end
+
+== Internal transfer ==
+PayCore -> Wallet : commit transfer (debit payer, credit receiver)
+Wallet -> Wallet : update internal balances (double-entry)
+Wallet -> Ledger : persist final settlement
+Wallet -> TrustAI : emit event (positive txn for trust update)
+Wallet --> PayCore : transfer success
+
+== Refund ==
+PayCore -> Wallet : reverse hold / refund
+Wallet -> Ledger : write reversal
+Wallet --> PayCore : refund success
+@enduml
