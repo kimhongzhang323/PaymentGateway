@@ -32,10 +32,10 @@ build/
 ### VS Code ###
 .vscode/
 
-### Environment Files ###
+### Environment Variables ###
 .env
+.env.local
+.env.production
 *.env
+!.env.example
 
-### Log Files ###
-*.log
-logs/

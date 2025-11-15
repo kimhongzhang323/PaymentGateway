@@ -36,6 +36,32 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- PostgreSQL for Supabase -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Flyway for database migrations -->
+
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <!-- Supabase Java Client -->
+        <dependency>
+            <groupId>io.github.jan-tennert.supabase</groupId>
+            <artifactId>postgrest-kt</artifactId>
+            <version>2.0.3</version>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

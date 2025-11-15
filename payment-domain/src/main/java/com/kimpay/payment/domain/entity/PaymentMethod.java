@@ -1,8 +1,9 @@
 package com.kimpay.payment.domain.entity;
 
 import jakarta.persistence.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * =============================================================================
@@ -33,14 +34,27 @@ import org.slf4j.LoggerFactory;
  */
 @Entity
 @Table(name = "payment_methods")
-public class PaymentMethod {
+@Getter
+@Setter
+@EqualsAndHashCode(of = "id", callSuper = false)
+public class PaymentMethod extends AbstractCreatedAtEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String code;        // e.g., CARD, GCASH, PAYPAL
-    private String displayName; // Human-readable
-    private boolean enabled;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
+    @Column(nullable = false, length = 50)
+    private String type;
+
+    @Column(nullable = false, length = 80)
+    private String provider;
+
+    @Column(columnDefinition = "text")
+    private String details;
+
+    @Column(nullable = false, length = 30)
+    private String status;
 }
