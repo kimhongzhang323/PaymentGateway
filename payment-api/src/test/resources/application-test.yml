@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: payment-test
+
+  # Test datasource configuration (H2 in-memory)
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  # JPA Configuration for tests
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+  # Disable Flyway for tests
+  flyway:
+    enabled: false
+
+# Disable Supabase for tests
+supabase:
+  enabled: false
+  url: http://localhost:54321
+  api-key: test-key
+  service-role-key: test-key
+  jwt-secret: test-secret
+
+# Test encryption key
+payment:
+  encryption:
+    algorithm: AES/GCM/NoPadding
+    aes-key-size: 256
+    iv-size: 12
+    tag-length: 128
+    key-provider: env
+    key-base64: dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcw==
+
+# Logging
+logging:
+  level:
+    com.kimpay: WARN
+    org.hibernate: WARN
+    org.springframework: WARN
+

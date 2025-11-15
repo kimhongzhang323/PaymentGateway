@@ -589,3 +589,91 @@ Caused by: org.postgresql.util.PSQLException: FATAL: password authentication fai
 	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:111)
 	at org.flywaydb.core.internal.jdbc.JdbcUtils.openConnection(JdbcUtils.java:59)
 	... 23 common frames omitted
+2025-11-15 17:18:09.281 [main] INFO 
+                [Kimpay-Gateway] [] []
+                c.k.payment.PaymentApplicationTests - Starting PaymentApplicationTests using Java 17.0.12 with PID 32992 (started by kimho in C:\Users\kimho\OneDrive\Documents\GitHub\payment\payment-api)
+2025-11-15 17:18:09.283 [main] DEBUG
+                [Kimpay-Gateway] [] []
+                c.k.payment.PaymentApplicationTests - Running with Spring Boot v3.5.7, Spring v6.2.12
+2025-11-15 17:18:09.283 [main] INFO 
+                [Kimpay-Gateway] [] []
+                c.k.payment.PaymentApplicationTests - The following 1 profile is active: "test"
+2025-11-15 17:18:11.874 [main] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-11-15 17:18:12.027 [main] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:testdb user=SA
+2025-11-15 17:18:12.029 [main] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-11-15 17:18:12.051 [main] WARN 
+                [Kimpay-Gateway] [] []
+                org.hibernate.orm.deprecation - HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2025-11-15 17:18:13.031 [main] WARN 
+                [Kimpay-Gateway] [] []
+                o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-11-15 17:18:13.747 [main] WARN 
+                [Kimpay-Gateway] [] []
+                o.s.b.a.s.s.UserDetailsServiceAutoConfiguration - 
+
+Using generated security password: a3a73df1-3eb8-4c10-a4e5-db07b6b6d983
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2025-11-15 17:18:13.761 [main] INFO 
+                [Kimpay-Gateway] [] []
+                o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2025-11-15 17:18:14.201 [main] INFO 
+                [Kimpay-Gateway] [] []
+                c.k.payment.PaymentApplicationTests - Started PaymentApplicationTests in 5.394 seconds (process running for 6.326)
+2025-11-15 17:18:14.568 [SpringApplicationShutdownHook] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-11-15 17:18:14.570 [SpringApplicationShutdownHook] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-11-15 17:19:40.237 [main] INFO 
+                [Kimpay-Gateway] [] []
+                c.k.payment.PaymentApplicationTests - Starting PaymentApplicationTests using Java 17.0.12 with PID 8484 (started by kimho in C:\Users\kimho\OneDrive\Documents\GitHub\payment\payment-api)
+2025-11-15 17:19:40.239 [main] DEBUG
+                [Kimpay-Gateway] [] []
+                c.k.payment.PaymentApplicationTests - Running with Spring Boot v3.5.7, Spring v6.2.12
+2025-11-15 17:19:40.240 [main] INFO 
+                [Kimpay-Gateway] [] []
+                c.k.payment.PaymentApplicationTests - The following 1 profile is active: "test"
+2025-11-15 17:19:42.714 [main] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-11-15 17:19:42.836 [main] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:testdb user=SA
+2025-11-15 17:19:42.837 [main] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-11-15 17:19:42.852 [main] WARN 
+                [Kimpay-Gateway] [] []
+                org.hibernate.orm.deprecation - HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2025-11-15 17:19:43.896 [main] WARN 
+                [Kimpay-Gateway] [] []
+                o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-11-15 17:19:44.754 [main] WARN 
+                [Kimpay-Gateway] [] []
+                o.s.b.a.s.s.UserDetailsServiceAutoConfiguration - 
+
+Using generated security password: 6195a661-a1d4-4579-a96c-c52d0caf1a0e
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2025-11-15 17:19:44.767 [main] INFO 
+                [Kimpay-Gateway] [] []
+                o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2025-11-15 17:19:45.187 [main] INFO 
+                [Kimpay-Gateway] [] []
+                c.k.payment.PaymentApplicationTests - Started PaymentApplicationTests in 5.396 seconds (process running for 6.251)
+2025-11-15 17:19:45.510 [SpringApplicationShutdownHook] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-11-15 17:19:45.512 [SpringApplicationShutdownHook] INFO 
+                [Kimpay-Gateway] [] []
+                com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.

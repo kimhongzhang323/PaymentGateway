@@ -29,6 +29,7 @@ This directory contains all project documentation.
 ### CI/CD & Build
 - **[MAVEN_CI_FIX_SUMMARY.md](MAVEN_CI_FIX_SUMMARY.md)** - Summary of Maven CI fixes
 - **[CI_TROUBLESHOOTING.md](CI_TROUBLESHOOTING.md)** - Comprehensive CI/CD troubleshooting guide
+- **[TEST_CONFIGURATION.md](TEST_CONFIGURATION.md)** - Test setup and configuration guide
 
 ### Commits & History
 - **[Commit Summary](commits/GIT_COMMIT_SUMMARY.md)**
