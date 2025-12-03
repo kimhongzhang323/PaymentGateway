@@ -11,7 +11,6 @@ import lombok.Setter;
 @Setter
 @EqualsAndHashCode(of = "id", callSuper = false)
 public class Card extends AbstractCreatedAtEntity {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
