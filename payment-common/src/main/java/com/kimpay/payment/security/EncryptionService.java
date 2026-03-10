@@ -15,6 +15,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Base64;
 
 /**
  * =============================================================================
@@ -81,7 +82,7 @@ public class EncryptionService {
             System.arraycopy(iv, 0, combined, 0, iv.length);
             System.arraycopy(cipherText, 0, combined, iv.length, cipherText.length);
 
-            return java.util.Base64.getEncoder().encodeToString(combined);
+            return Base64.getEncoder().encodeToString(combined);
         } catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidAlgorithmParameterException |
                  InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
             throw new RuntimeException(e);
@@ -94,7 +95,7 @@ public class EncryptionService {
     public String decrypt(String cipherText) {
         try {
             byte[] key = keyProvider.getDataEncryptionKey();
-            byte[] decoded = java.util.Base64.getDecoder().decode(cipherText);
+            byte[] decoded = Base64.getDecoder().decode(cipherText);
 
             byte[] iv = new byte[ivSize];
             System.arraycopy(decoded, 0, iv, 0, iv.length);

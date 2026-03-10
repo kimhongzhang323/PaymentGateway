@@ -19,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -86,7 +88,7 @@ public class PaymentService {
         String idempotencyKey = request.idempotencyKey();
         // DB guard (fallback/final check)
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            java.util.Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(idempotencyKey);
+            Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(idempotencyKey);
             if (existing.isPresent()) {
                 redisTemplate.opsForValue().set(IDEMPOTENCY_PREFIX + idempotencyKey, "completed", 24, TimeUnit.HOURS);
                 return PaymentResponse.from(existing.get());
@@ -182,12 +184,12 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public java.util.List<PaymentResponse> getTransactionsByUser(Long userId) {
+    public List<PaymentResponse> getTransactionsByUser(Long userId) {
         return PaymentResponse.fromList(transactionRepository.findByUserIdOrderByCreatedAtDesc(userId));
     }
 
     @Transactional(readOnly = true)
-    public java.util.List<PaymentResponse> getTransactionsByMerchant(Long merchantId) {
+    public List<PaymentResponse> getTransactionsByMerchant(Long merchantId) {
         return PaymentResponse.fromList(transactionRepository.findByMerchantIdOrderByCreatedAtDesc(merchantId));
     }
 
@@ -288,7 +290,7 @@ public class PaymentService {
         }
 
         // Calculate cumulative refunded total to support partial refunds
-        java.util.List<Refund> existingRefunds = refundRepository.findAllByTransactionId(transactionId);
+        List<Refund> existingRefunds = refundRepository.findAllByTransactionId(transactionId);
         BigDecimal totalRefunded = existingRefunds.stream()
                 .map(Refund::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

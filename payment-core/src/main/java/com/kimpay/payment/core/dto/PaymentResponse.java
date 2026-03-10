@@ -4,6 +4,8 @@ import com.kimpay.payment.domain.entity.Transaction;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public record PaymentResponse(
         Long id,
@@ -30,9 +32,9 @@ public record PaymentResponse(
         );
     }
 
-    public static java.util.List<PaymentResponse> fromList(java.util.List<Transaction> transactions) {
+    public static List<PaymentResponse> fromList(List<Transaction> transactions) {
         return transactions.stream()
                 .map(PaymentResponse::from)
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
     }
 }
