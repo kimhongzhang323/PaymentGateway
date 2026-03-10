@@ -2,12 +2,14 @@ package com.kimpay.payment.core.service;
 
 import com.kimpay.payment.core.dto.CreatePaymentRequest;
 import com.kimpay.payment.core.dto.PaymentResponse;
+import com.kimpay.payment.core.dto.QRPaymentRequest;
 import com.kimpay.payment.core.dto.RefundPaymentRequest;
 import com.kimpay.payment.core.event.PaymentEvent;
 import com.kimpay.payment.core.event.PaymentEventPublisher;
 import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Locale;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -31,6 +34,8 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final MerchantRepository merchantRepository;
     private final PaymentEventPublisher paymentEventPublisher;
+    private final EncryptionService encryptionService;
+    private final QRService qrService;
 
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
@@ -139,6 +144,62 @@ public class PaymentService {
         logEvent(transaction.getId(), "CAPTURED", "Transaction captured");
         publishEvent("CAPTURED", transaction, "Transaction captured");
         return PaymentResponse.from(transaction);
+    }
+
+    @Transactional
+    public PaymentResponse processQRPayment(QRPaymentRequest request) {
+        try {
+            // Decrypt the QR data using standard AES-GCM (no mocking)
+            String decryptedData = encryptionService.decrypt(request.qrData());
+            
+            // Expected format: mId:123|amt:10.00|cur:USD|ts:1710101010
+            String merchantIdStr = null;
+            BigDecimal amount = null;
+            String currency = null;
+
+            String[] pairs = decryptedData.split("\\|");
+            for (String pair : pairs) {
+                String[] kv = pair.split(":");
+                if (kv.length != 2) continue;
+                switch (kv[0]) {
+                    case "mId" -> merchantIdStr = kv[1];
+                    case "amt" -> amount = new BigDecimal(kv[1]);
+                    case "cur" -> currency = kv[1];
+                }
+            }
+
+            if (merchantIdStr == null || amount == null || currency == null) {
+                throw new IllegalArgumentException("Invalid QR payload");
+            }
+
+            Long merchantId = Long.parseLong(merchantIdStr);
+
+            CreatePaymentRequest createRequest = new CreatePaymentRequest(
+                request.userId(),
+                merchantId,
+                request.paymentMethodId(),
+                request.walletId(),
+                amount,
+                currency,
+                true // Auto-capture for retail QR scans
+            );
+
+            return createPayment(createRequest);
+        } catch (Exception e) {
+            log.error("QR processing failed", e);
+            throw new IllegalArgumentException("QR Payment Failed: " + e.getMessage());
+        }
+    }
+
+    public String generateMerchantQRImage(Long merchantId, BigDecimal amount, String currency) {
+        // Create a structured payload and encrypt it for security
+        String payload = String.format("mId:%d|amt:%.2f|cur:%s|ts:%d", 
+                merchantId, amount, currency, System.currentTimeMillis() / 1000);
+        
+        String encryptedPayload = encryptionService.encrypt(payload);
+        
+        // Generate actual QR image Base64 (no mocking)
+        return qrService.generateQRCodeBase64(encryptedPayload, 300, 300);
     }
 
     @Transactional(readOnly = true)

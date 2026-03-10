@@ -2,12 +2,16 @@ package com.kimpay.payment.controller;
 
 import com.kimpay.payment.core.dto.CreatePaymentRequest;
 import com.kimpay.payment.core.dto.PaymentResponse;
+import com.kimpay.payment.core.dto.QRPaymentRequest;
 import com.kimpay.payment.core.dto.RefundPaymentRequest;
 import com.kimpay.payment.core.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -25,6 +29,20 @@ public class PaymentController {
     @GetMapping("/{transactionId}")
     public ResponseEntity<PaymentResponse> getPayment(@PathVariable Long transactionId) {
         return ResponseEntity.ok(paymentService.getPayment(transactionId));
+    }
+
+    @PostMapping("/scan")
+    public ResponseEntity<PaymentResponse> scanPayment(@RequestBody QRPaymentRequest request) {
+        return ResponseEntity.ok(paymentService.processQRPayment(request));
+    }
+
+    @GetMapping("/merchant/{merchantId}/qr")
+    public ResponseEntity<String> getMerchantQR(
+            @PathVariable Long merchantId,
+            @RequestParam BigDecimal amount,
+            @RequestParam String currency
+    ) {
+        return ResponseEntity.ok(paymentService.generateMerchantQRImage(merchantId, amount, currency));
     }
 
     @PostMapping("/{transactionId}/capture")
@@ -46,12 +64,12 @@ public class PaymentController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<java.util.List<PaymentResponse>> getTransactionsByUser(@PathVariable Long userId) {
+    public ResponseEntity<List<PaymentResponse>> getTransactionsByUser(@PathVariable Long userId) {
         return ResponseEntity.ok(paymentService.getTransactionsByUser(userId));
     }
 
     @GetMapping("/merchant/{merchantId}")
-    public ResponseEntity<java.util.List<PaymentResponse>> getTransactionsByMerchant(@PathVariable Long merchantId) {
+    public ResponseEntity<List<PaymentResponse>> getTransactionsByMerchant(@PathVariable Long merchantId) {
         return ResponseEntity.ok(paymentService.getTransactionsByMerchant(merchantId));
     }
 }
