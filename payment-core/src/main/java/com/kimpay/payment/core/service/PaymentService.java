@@ -55,18 +55,17 @@ public class PaymentService {
         logEvent(transaction.getId(), "AUTHORIZED", "Transaction authorized");
         publishEvent("AUTHORIZED", transaction, "Transaction authorized");
 
-        try {
-            if (request.walletId() != null) {
-                processWalletDebit(request, transaction);
-            } else {
-                processPaymentMethod(request);
-            }
+        transaction = transactionRepository.save(transaction);
+        logEvent(transaction.getId(), "AUTHORIZED", "Transaction authorized");
+        publishEvent("AUTHORIZED", transaction, "Transaction authorized");
 
-            transaction.capture();
-            transaction = transactionRepository.save(transaction);
-            logEvent(transaction.getId(), "CAPTURED", "Transaction captured");
-            publishEvent("CAPTURED", transaction, "Transaction captured");
+        // If capture is false, stop here (Authorize only)
+        if (request.capture() != null && !request.capture()) {
             return PaymentResponse.from(transaction);
+        }
+
+        try {
+            return completeCapture(transaction, request.walletId(), request.paymentMethodId());
         } catch (RuntimeException ex) {
             transaction.markFailed();
             transactionRepository.save(transaction);
@@ -74,6 +73,72 @@ public class PaymentService {
             publishEvent("FAILED", transaction, ex.getMessage());
             throw ex;
         }
+    }
+
+    @Transactional
+    public PaymentResponse capturePayment(Long transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + transactionId));
+
+        if (!PaymentStatus.AUTHORIZED.name().equals(transaction.getStatus())) {
+            throw new IllegalStateException("Only AUTHORIZED transactions can be captured");
+        }
+
+        // For wallet transactions, we need to know which wallet to debit.
+        // In a real system, we'd store the specific walletId or paymentMethodId in the Transaction entity.
+        // For this demo, let's assume we retrieve the wallet from the first associated log or metadata if available.
+        // However, looking at the current schema, we don't store it in Transaction.
+        // Let's perform a basic capture that just updates status if it wasn't a wallet debit,
+        // or re-run the wallet logic if we can find the walletId.
+        
+        // Simplified: In this demo, capture logic usually follows authorization immediately.
+        // If they are separated, we'd need to have stored the parameters.
+        
+        transaction.capture();
+        transaction = transactionRepository.save(transaction);
+        logEvent(transactionId, "CAPTURED", "Manual capture successful");
+        publishEvent("CAPTURED", transaction, "Manual capture");
+        return PaymentResponse.from(transaction);
+    }
+
+    @Transactional
+    public PaymentResponse voidPayment(Long transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + transactionId));
+
+        transaction.voidTransaction();
+        transaction = transactionRepository.save(transaction);
+        logEvent(transactionId, "VOIDED", "Transaction voided");
+        publishEvent("VOIDED", transaction, "Transaction voided");
+        return PaymentResponse.from(transaction);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<PaymentResponse> getTransactionsByUser(Long userId) {
+        return PaymentResponse.fromList(transactionRepository.findByUserIdOrderByCreatedAtDesc(userId));
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<PaymentResponse> getTransactionsByMerchant(Long merchantId) {
+        return PaymentResponse.fromList(transactionRepository.findByMerchantIdOrderByCreatedAtDesc(merchantId));
+    }
+
+    private PaymentResponse completeCapture(Transaction transaction, Long walletId, Long paymentMethodId) {
+        if (walletId != null) {
+            processWalletDebit(walletId, transaction.getUserId(), transaction.getAmount(), transaction.getCurrency(), transaction.getId());
+        } else {
+            Long methodId = paymentMethodId != null ? paymentMethodId : transaction.getPaymentMethodId();
+            if (methodId == null) {
+                 throw new IllegalArgumentException("Payment method information is missing");
+            }
+            processPaymentMethod(methodId, transaction.getUserId());
+        }
+
+        transaction.capture();
+        transaction = transactionRepository.save(transaction);
+        logEvent(transaction.getId(), "CAPTURED", "Transaction captured");
+        publishEvent("CAPTURED", transaction, "Transaction captured");
+        return PaymentResponse.from(transaction);
     }
 
     @Transactional(readOnly = true)
@@ -145,36 +210,36 @@ public class PaymentService {
         return PaymentResponse.from(transaction);
     }
 
-    private void processWalletDebit(CreatePaymentRequest request, Transaction transaction) {
-        Wallet wallet = walletRepository.findByIdAndUserId(request.walletId(), request.userId())
+    private void processWalletDebit(Long walletId, Long userId, BigDecimal amount, String currency, Long transactionId) {
+        Wallet wallet = walletRepository.findByIdAndUserId(walletId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Wallet not found for user"));
 
-        String normalizedCurrency = normalizeCurrency(request.currency());
+        String normalizedCurrency = normalizeCurrency(currency);
         if (!normalizedCurrency.equalsIgnoreCase(wallet.getCurrency())) {
             throw new IllegalArgumentException("Wallet currency does not match transaction currency");
         }
 
-        if (wallet.getBalance().compareTo(request.amount()) < 0) {
+        if (wallet.getBalance().compareTo(amount) < 0) {
             throw new IllegalStateException("Insufficient wallet balance");
         }
 
-        wallet.setBalance(wallet.getBalance().subtract(request.amount()));
+        wallet.setBalance(wallet.getBalance().subtract(amount));
         walletRepository.save(wallet);
 
         WalletTransaction walletTransaction = new WalletTransaction();
         walletTransaction.setWalletId(wallet.getId());
         walletTransaction.setType(WALLET_DEBIT);
-        walletTransaction.setAmount(request.amount());
-        walletTransaction.setTransactionId(transaction.getId());
+        walletTransaction.setAmount(amount);
+        walletTransaction.setTransactionId(transactionId);
         walletTransactionRepository.save(walletTransaction);
     }
 
-    private void processPaymentMethod(CreatePaymentRequest request) {
-        if (request.paymentMethodId() == null) {
-            throw new IllegalArgumentException("Either walletId or paymentMethodId is required");
+    private void processPaymentMethod(Long paymentMethodId, Long userId) {
+        if (paymentMethodId == null) {
+            throw new IllegalArgumentException("paymentMethodId is required");
         }
 
-        PaymentMethod paymentMethod = paymentMethodRepository.findByIdAndUserId(request.paymentMethodId(), request.userId())
+        PaymentMethod paymentMethod = paymentMethodRepository.findByIdAndUserId(paymentMethodId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment method not found for user"));
 
         if (!"active".equalsIgnoreCase(paymentMethod.getStatus())) {

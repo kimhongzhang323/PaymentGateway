@@ -27,11 +27,31 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.getPayment(transactionId));
     }
 
+    @PostMapping("/{transactionId}/capture")
+    public ResponseEntity<PaymentResponse> capturePayment(@PathVariable Long transactionId) {
+        return ResponseEntity.ok(paymentService.capturePayment(transactionId));
+    }
+
+    @PostMapping("/{transactionId}/void")
+    public ResponseEntity<PaymentResponse> voidPayment(@PathVariable Long transactionId) {
+        return ResponseEntity.ok(paymentService.voidPayment(transactionId));
+    }
+
     @PostMapping("/{transactionId}/refund")
     public ResponseEntity<PaymentResponse> refundPayment(
             @PathVariable Long transactionId,
             @RequestBody RefundPaymentRequest request
     ) {
         return ResponseEntity.ok(paymentService.refundPayment(transactionId, request));
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<java.util.List<PaymentResponse>> getTransactionsByUser(@PathVariable Long userId) {
+        return ResponseEntity.ok(paymentService.getTransactionsByUser(userId));
+    }
+
+    @GetMapping("/merchant/{merchantId}")
+    public ResponseEntity<java.util.List<PaymentResponse>> getTransactionsByMerchant(@PathVariable Long merchantId) {
+        return ResponseEntity.ok(paymentService.getTransactionsByMerchant(merchantId));
     }
 }

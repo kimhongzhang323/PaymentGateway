@@ -97,6 +97,13 @@ public class Transaction {
         this.status = PaymentStatus.PARTIALLY_REFUNDED.name();
     }
 
+    public void voidTransaction() {
+        if (!PaymentStatus.AUTHORIZED.name().equals(this.status)) {
+            throw new IllegalStateException("Only AUTHORIZED transactions can be voided");
+        }
+        this.status = PaymentStatus.VOIDED.name();
+    }
+
     // 更新时间
     @PrePersist
     protected void onCreate() {

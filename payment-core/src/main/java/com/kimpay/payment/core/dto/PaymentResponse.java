@@ -29,4 +29,10 @@ public record PaymentResponse(
                 transaction.getUpdatedAt()
         );
     }
+
+    public static java.util.List<PaymentResponse> fromList(java.util.List<Transaction> transactions) {
+        return transactions.stream()
+                .map(PaymentResponse::from)
+                .collect(java.util.stream.Collectors.toList());
+    }
 }

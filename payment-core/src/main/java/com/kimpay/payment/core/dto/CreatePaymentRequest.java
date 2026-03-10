@@ -8,6 +8,7 @@ public record CreatePaymentRequest(
         Long paymentMethodId,
         Long walletId,
         BigDecimal amount,
-        String currency
+        String currency,
+        Boolean capture
 ) {
 }
