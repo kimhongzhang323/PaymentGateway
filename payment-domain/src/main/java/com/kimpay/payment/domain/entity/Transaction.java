@@ -68,6 +68,12 @@ public class Transaction {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Version
+    private Long version;
+
+    @Column(name = "idempotency_key", length = 100, unique = true)
+    private String idempotencyKey;
+
     public void authorize() {
         this.status = PaymentStatus.AUTHORIZED.name();
     }

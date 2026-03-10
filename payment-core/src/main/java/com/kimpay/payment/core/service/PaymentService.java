@@ -41,6 +41,15 @@ public class PaymentService {
     public PaymentResponse createPayment(CreatePaymentRequest request) {
         validateCreateRequest(request);
 
+        // Check for idempotency
+        if (request.idempotencyKey() != null && !request.idempotencyKey().isBlank()) {
+            java.util.Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(request.idempotencyKey());
+            if (existing.isPresent()) {
+                log.info("Duplicate request detected for idempotencyKey: {}", request.idempotencyKey());
+                return PaymentResponse.from(existing.get());
+            }
+        }
+
         if (!userRepository.existsById(request.userId())) {
             throw new IllegalArgumentException("User not found: " + request.userId());
         }
@@ -54,6 +63,7 @@ public class PaymentService {
         transaction.setPaymentMethodId(request.paymentMethodId());
         transaction.setAmount(request.amount());
         transaction.setCurrency(normalizeCurrency(request.currency()));
+        transaction.setIdempotencyKey(request.idempotencyKey());
         transaction.authorize();
 
         transaction = transactionRepository.save(transaction);
@@ -181,7 +191,8 @@ public class PaymentService {
                 request.walletId(),
                 amount,
                 currency,
-                true // Auto-capture for retail QR scans
+                true, // Auto-capture for retail QR scans
+                request.idempotencyKey()
             );
 
             return createPayment(createRequest);
@@ -272,7 +283,8 @@ public class PaymentService {
     }
 
     private void processWalletDebit(Long walletId, Long userId, BigDecimal amount, String currency, Long transactionId) {
-        Wallet wallet = walletRepository.findByIdAndUserId(walletId, userId)
+        // Use Pessimistic Lock to ensure atomic balance update in high TPS
+        Wallet wallet = walletRepository.findWithLockByIdAndUserId(walletId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Wallet not found for user"));
 
         String normalizedCurrency = normalizeCurrency(currency);

@@ -4,6 +4,7 @@ public record QRPaymentRequest(
     Long userId,
     String qrData,
     Long walletId,
-    Long paymentMethodId
+    Long paymentMethodId,
+    String idempotencyKey
 ) {
 }

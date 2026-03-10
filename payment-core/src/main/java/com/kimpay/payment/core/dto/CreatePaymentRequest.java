@@ -9,6 +9,7 @@ public record CreatePaymentRequest(
         Long walletId,
         BigDecimal amount,
         String currency,
-        Boolean capture
+        Boolean capture,
+        String idempotencyKey
 ) {
 }

@@ -26,5 +26,8 @@ public class Wallet extends AbstractCreatedAtEntity {
 
     @Column(nullable = false, length = 3)
     private String currency;
+
+    @Version
+    private Long version;
 }
 

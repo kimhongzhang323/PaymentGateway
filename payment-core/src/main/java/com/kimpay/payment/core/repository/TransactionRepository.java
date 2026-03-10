@@ -8,4 +8,5 @@ import java.util.List;
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     List<Transaction> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<Transaction> findByMerchantIdOrderByCreatedAtDesc(Long merchantId);
+    java.util.Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
 }
