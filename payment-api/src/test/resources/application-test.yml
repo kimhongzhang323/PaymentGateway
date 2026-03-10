@@ -36,7 +36,7 @@ payment:
     iv-size: 12
     tag-length: 128
     key-provider: env
-    key-base64: dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcw==
+    key-base64: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
 
 # Logging
 logging:

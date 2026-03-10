@@ -68,11 +68,36 @@ public class Transaction {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    public void authorize() {
+        this.status = PaymentStatus.AUTHORIZED.name();
+    }
+
+    public void capture() {
+        if (!PaymentStatus.AUTHORIZED.name().equals(this.status)) {
+            throw new IllegalStateException("Only AUTHORIZED transactions can be captured");
+        }
+        this.status = PaymentStatus.CAPTURED.name();
+    }
+
+    public void markFailed() {
+        this.status = PaymentStatus.FAILED.name();
+    }
+
+    public void refund() {
+        if (!PaymentStatus.CAPTURED.name().equals(this.status)) {
+            throw new IllegalStateException("Only CAPTURED transactions can be refunded");
+        }
+        this.status = PaymentStatus.REFUNDED.name();
+    }
+
     // 更新时间
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (this.status == null || this.status.isBlank()) {
+            this.status = PaymentStatus.AUTHORIZED.name();
+        }
     }
 
     @PreUpdate
