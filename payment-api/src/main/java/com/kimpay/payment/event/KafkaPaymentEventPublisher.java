@@ -7,38 +7,39 @@ import com.kimpay.payment.core.event.PaymentEvent;
 import com.kimpay.payment.core.event.PaymentEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Primary;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
-@Component
-@Primary
-@RequiredArgsConstructor
 @Slf4j
+@Component
+@RequiredArgsConstructor
+@ConditionalOnProperty(name = "payment.kafka.enabled", havingValue = "true", matchIfMissing = true)
 public class KafkaPaymentEventPublisher implements PaymentEventPublisher {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final KafkaPaymentProperties properties;
     private final ObjectMapper objectMapper;
-    private final KafkaPaymentProperties kafkaPaymentProperties;
 
     @Override
     public void publish(PaymentEvent event) {
-        if (!kafkaPaymentProperties.isEnabled()) {
-            return;
-        }
-
         try {
             String payload = objectMapper.writeValueAsString(event);
-            String key = event.transactionId() == null ? "unknown" : String.valueOf(event.transactionId());
-            kafkaTemplate.send(kafkaPaymentProperties.getPaymentTopic(), key, payload)
-                    .whenComplete((result, ex) -> {
-                        if (ex != null) {
-                            log.warn("Failed to publish payment event to Kafka topic {}: {}",
-                                    kafkaPaymentProperties.getPaymentTopic(), ex.getMessage());
-                        }
-                    });
-        } catch (JsonProcessingException ex) {
-            log.warn("Failed to serialize payment event for Kafka: {}", ex.getMessage());
+            String key = event.transactionId() != null ? event.transactionId().toString() : null;
+            
+            log.info("Publishing payment event to Kafka. Topic: {}, EventType: {}", 
+                    properties.getPaymentTopic(), event.eventType());
+            
+            kafkaTemplate.send(properties.getPaymentTopic(), key, payload)
+                .whenComplete((result, ex) -> {
+                    if (ex == null) {
+                        log.debug("Published event successfully: {}", result.getRecordMetadata());
+                    } else {
+                        log.error("Failed to publish event to Kafka", ex);
+                    }
+                });
+        } catch (JsonProcessingException e) {
+            log.error("Error serializing payment event", e);
         }
     }
 }

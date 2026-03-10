@@ -84,10 +84,17 @@ public class Transaction {
     }
 
     public void refund() {
-        if (!PaymentStatus.CAPTURED.name().equals(this.status)) {
-            throw new IllegalStateException("Only CAPTURED transactions can be refunded");
+        if (!PaymentStatus.CAPTURED.name().equals(this.status) && !PaymentStatus.PARTIALLY_REFUNDED.name().equals(this.status)) {
+            throw new IllegalStateException("Only CAPTURED or PARTIALLY_REFUNDED transactions can be refunded");
         }
         this.status = PaymentStatus.REFUNDED.name();
+    }
+
+    public void partialRefund() {
+        if (!PaymentStatus.CAPTURED.name().equals(this.status) && !PaymentStatus.PARTIALLY_REFUNDED.name().equals(this.status)) {
+            throw new IllegalStateException("Only CAPTURED or PARTIALLY_REFUNDED transactions can be partially refunded");
+        }
+        this.status = PaymentStatus.PARTIALLY_REFUNDED.name();
     }
 
     // 更新时间

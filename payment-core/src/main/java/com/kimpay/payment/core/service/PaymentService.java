@@ -92,12 +92,21 @@ public class PaymentService {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + transactionId));
 
-        if (!PaymentStatus.CAPTURED.name().equals(transaction.getStatus())) {
-            throw new IllegalStateException("Only CAPTURED transactions can be refunded");
+        if (!PaymentStatus.CAPTURED.name().equals(transaction.getStatus()) &&
+                !PaymentStatus.PARTIALLY_REFUNDED.name().equals(transaction.getStatus())) {
+            throw new IllegalStateException("Only CAPTURED or PARTIALLY_REFUNDED transactions can be refunded");
         }
 
-        if (request.amount().compareTo(transaction.getAmount()) != 0) {
-            throw new IllegalArgumentException("Only full refunds are supported for now");
+        // Calculate cumulative refunded total to support partial refunds
+        java.util.List<Refund> existingRefunds = refundRepository.findAllByTransactionId(transactionId);
+        BigDecimal totalRefunded = existingRefunds.stream()
+                .map(Refund::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal remainingAmount = transaction.getAmount().subtract(totalRefunded);
+
+        if (request.amount().compareTo(remainingAmount) > 0) {
+            throw new IllegalArgumentException("Refund amount exceeds remaining transaction amount. Remaining: " + remainingAmount);
         }
 
         Refund refund = new Refund();
@@ -122,10 +131,16 @@ public class PaymentService {
                     walletTransactionRepository.save(credit);
                 });
 
-        transaction.refund();
+        // Update transaction status based on whether it's fully or partially refunded
+        if (request.amount().compareTo(remainingAmount) == 0) {
+            transaction.refund();
+        } else {
+            transaction.partialRefund();
+        }
+
         transaction = transactionRepository.save(transaction);
-        logEvent(transactionId, "REFUNDED", "Transaction refunded");
-        publishEvent("REFUNDED", transaction, request.reason());
+        logEvent(transactionId, transaction.getStatus(), "Transaction " + transaction.getStatus().toLowerCase());
+        publishEvent(transaction.getStatus(), transaction, request.reason());
 
         return PaymentResponse.from(transaction);
     }
