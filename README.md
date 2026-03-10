@@ -112,6 +112,8 @@ Infrastructure:
 | Events | Apache Kafka (Confluent 7.4) |
 | QR Codes | ZXing 3.5.3 |
 | Build | Maven 3.9+ (Maven Wrapper included) |
+| CI/CD | GitHub Actions |
+| Containerization | Docker |
 
 ---
 
@@ -448,6 +450,22 @@ docker logs kimpay-kafka
 
 ---
 
+# CI/CD Pipeline
+
+The project includes a fully automated CI/CD pipeline powered by **GitHub Actions**.
+
+### Workflow: `Payment Gateway CI/CD`
+- **Build & Test**: Every push or Pull Request to the `main` branch triggers a full Maven build and execution of all unit/integration tests.
+- **Dockerization**: For every push to `main`, a Docker image for `payment-api` is automatically built.
+- **Artifacts**: Maven build artifacts (JARs) are uploaded and stored for each successful build on `main`.
+
+**Local Docker Build:**
+```bash
+docker build -t kimpay/payment-api:latest -f payment-api/Dockerfile .
+```
+
+---
+
 ## 🚢 Deployment
 
 ### Build Production JAR
@@ -489,6 +507,7 @@ Ensure the following environment variables are set in your production environmen
 | Flyway migrations | ✅ Complete |
 | Supabase cloud integration | ✅ Complete |
 | Docker local development setup | ✅ Complete |
+| GitHub Actions CI/CD pipeline | ✅ Complete |
 | Authentication endpoints | 🔄 In Progress |
 | Swagger / OpenAPI documentation | 📋 Planned |
 | Integration tests | 📋 Planned |
