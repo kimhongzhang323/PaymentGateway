@@ -10,12 +10,16 @@ import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -36,16 +40,54 @@ public class PaymentService {
     private final PaymentEventPublisher paymentEventPublisher;
     private final EncryptionService encryptionService;
     private final QRService qrService;
+    private final StringRedisTemplate redisTemplate;
+    private final RedissonClient redissonClient;
+
+    private static final String IDEMPOTENCY_PREFIX = "payment:idempotency:";
+    private static final String MERCHANT_CACHE_PREFIX = "payment:merchant:exists:";
+    private static final String LOCK_PREFIX = "payment:lock:";
 
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
         validateCreateRequest(request);
 
-        // Check for idempotency
-        if (request.idempotencyKey() != null && !request.idempotencyKey().isBlank()) {
-            java.util.Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(request.idempotencyKey());
+        String idempotencyKey = request.idempotencyKey();
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return processCreatePayment(request);
+        }
+
+        // Distributed Lock to prevent race conditions on the same idempotency key across different nodes
+        RLock lock = redissonClient.getLock(LOCK_PREFIX + "idempotency:" + idempotencyKey);
+        try {
+            if (lock.tryLock(5, 10, TimeUnit.SECONDS)) {
+                try {
+                    String redisKey = IDEMPOTENCY_PREFIX + idempotencyKey;
+                    if (Boolean.TRUE.equals(redisTemplate.hasKey(redisKey))) {
+                        log.info("Duplicate request detected in Redis for idempotencyKey: {}", idempotencyKey);
+                        return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                                .map(PaymentResponse::from)
+                                .orElseThrow(() -> new IllegalStateException("Idempotency key in Redis but not in DB"));
+                    }
+                    return processCreatePayment(request);
+                } finally {
+                    lock.unlock();
+                }
+            } else {
+                throw new IllegalStateException("Could not acquire lock for idempotency key: " + idempotencyKey);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for idempotency lock", e);
+        }
+    }
+
+    private PaymentResponse processCreatePayment(CreatePaymentRequest request) {
+        String idempotencyKey = request.idempotencyKey();
+        // DB guard (fallback/final check)
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            java.util.Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(idempotencyKey);
             if (existing.isPresent()) {
-                log.info("Duplicate request detected for idempotencyKey: {}", request.idempotencyKey());
+                redisTemplate.opsForValue().set(IDEMPOTENCY_PREFIX + idempotencyKey, "completed", 24, TimeUnit.HOURS);
                 return PaymentResponse.from(existing.get());
             }
         }
@@ -53,8 +95,14 @@ public class PaymentService {
         if (!userRepository.existsById(request.userId())) {
             throw new IllegalArgumentException("User not found: " + request.userId());
         }
-        if (!merchantRepository.existsById(request.merchantId())) {
-            throw new IllegalArgumentException("Merchant not found: " + request.merchantId());
+
+        // High TPS Merchant check with Redis cache
+        String merchantCacheKey = MERCHANT_CACHE_PREFIX + request.merchantId();
+        if (Boolean.FALSE.equals(redisTemplate.hasKey(merchantCacheKey))) {
+            if (!merchantRepository.existsById(request.merchantId())) {
+                throw new IllegalArgumentException("Merchant not found: " + request.merchantId());
+            }
+            redisTemplate.opsForValue().set(merchantCacheKey, "active", 1, TimeUnit.HOURS);
         }
 
         Transaction transaction = new Transaction();
@@ -70,17 +118,21 @@ public class PaymentService {
         logEvent(transaction.getId(), "AUTHORIZED", "Transaction authorized");
         publishEvent("AUTHORIZED", transaction, "Transaction authorized");
 
-        transaction = transactionRepository.save(transaction);
-        logEvent(transaction.getId(), "AUTHORIZED", "Transaction authorized");
-        publishEvent("AUTHORIZED", transaction, "Transaction authorized");
-
         // If capture is false, stop here (Authorize only)
         if (request.capture() != null && !request.capture()) {
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                redisTemplate.opsForValue().set(IDEMPOTENCY_PREFIX + idempotencyKey, "completed", 24, TimeUnit.HOURS);
+            }
             return PaymentResponse.from(transaction);
         }
 
         try {
-            return completeCapture(transaction, request.walletId(), request.paymentMethodId());
+            PaymentResponse response = completeCapture(transaction, request.walletId(), request.paymentMethodId());
+            // Save to Redis after successful completion
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                redisTemplate.opsForValue().set(IDEMPOTENCY_PREFIX + idempotencyKey, "completed", 24, TimeUnit.HOURS);
+            }
+            return response;
         } catch (RuntimeException ex) {
             transaction.markFailed();
             transactionRepository.save(transaction);
@@ -283,28 +335,43 @@ public class PaymentService {
     }
 
     private void processWalletDebit(Long walletId, Long userId, BigDecimal amount, String currency, Long transactionId) {
-        // Use Pessimistic Lock to ensure atomic balance update in high TPS
-        Wallet wallet = walletRepository.findWithLockByIdAndUserId(walletId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Wallet not found for user"));
+        // Distributed Lock at User/Wallet level to ensure cross-node consistency
+        RLock lock = redissonClient.getLock(LOCK_PREFIX + "wallet:" + walletId);
+        try {
+            if (lock.tryLock(5, 10, TimeUnit.SECONDS)) {
+                try {
+                    // Still use Pessimistic Lock in DB as secondary safety
+                    Wallet wallet = walletRepository.findWithLockByIdAndUserId(walletId, userId)
+                            .orElseThrow(() -> new IllegalArgumentException("Wallet not found for user"));
 
-        String normalizedCurrency = normalizeCurrency(currency);
-        if (!normalizedCurrency.equalsIgnoreCase(wallet.getCurrency())) {
-            throw new IllegalArgumentException("Wallet currency does not match transaction currency");
+                    String normalizedCurrency = normalizeCurrency(currency);
+                    if (!normalizedCurrency.equalsIgnoreCase(wallet.getCurrency())) {
+                        throw new IllegalArgumentException("Wallet currency does not match transaction currency");
+                    }
+
+                    if (wallet.getBalance().compareTo(amount) < 0) {
+                        throw new IllegalStateException("Insufficient wallet balance");
+                    }
+
+                    wallet.setBalance(wallet.getBalance().subtract(amount));
+                    walletRepository.save(wallet);
+
+                    WalletTransaction walletTransaction = new WalletTransaction();
+                    walletTransaction.setWalletId(wallet.getId());
+                    walletTransaction.setType(WALLET_DEBIT);
+                    walletTransaction.setAmount(amount);
+                    walletTransaction.setTransactionId(transactionId);
+                    walletTransactionRepository.save(walletTransaction);
+                } finally {
+                    lock.unlock();
+                }
+            } else {
+                throw new IllegalStateException("Could not acquire lock for wallet: " + walletId);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for wallet lock", e);
         }
-
-        if (wallet.getBalance().compareTo(amount) < 0) {
-            throw new IllegalStateException("Insufficient wallet balance");
-        }
-
-        wallet.setBalance(wallet.getBalance().subtract(amount));
-        walletRepository.save(wallet);
-
-        WalletTransaction walletTransaction = new WalletTransaction();
-        walletTransaction.setWalletId(wallet.getId());
-        walletTransaction.setType(WALLET_DEBIT);
-        walletTransaction.setAmount(amount);
-        walletTransaction.setTransactionId(transactionId);
-        walletTransactionRepository.save(walletTransaction);
     }
 
     private void processPaymentMethod(Long paymentMethodId, Long userId) {
