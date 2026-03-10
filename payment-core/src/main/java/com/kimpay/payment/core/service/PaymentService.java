@@ -8,6 +8,7 @@ import com.kimpay.payment.core.event.PaymentEvent;
 import com.kimpay.payment.core.event.PaymentEventPublisher;
 import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.*;
+import com.kimpay.payment.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
