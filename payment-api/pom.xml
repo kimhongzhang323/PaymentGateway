@@ -80,6 +80,11 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- local module dependencies (use parent version to avoid mismatches) -->
         <dependency>
             <groupId>com.kimpay</groupId>

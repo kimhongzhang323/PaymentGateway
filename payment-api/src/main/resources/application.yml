@@ -39,6 +39,12 @@ spring:
     locations: classpath:db/migration
     schemas: public
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
 # Supabase Configuration
 supabase:
   url: ${SUPABASE_URL:https://uktcjfzjyfxoiokeeomw.supabase.co}
@@ -54,6 +60,9 @@ payment:
     tag-length: 128
     key-provider: env
     key-base64: ${PAYMENT_ENCRYPTION_KEY_BASE64:}
+  kafka:
+    enabled: ${PAYMENT_KAFKA_ENABLED:true}
+    payment-topic: ${PAYMENT_KAFKA_TOPIC:payment.events}
 
 # Logging Configuration
 logging:

@@ -1,9 +1,12 @@
 package com.kimpay.payment;
 
+import com.kimpay.payment.config.KafkaPaymentProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
+@EnableConfigurationProperties(KafkaPaymentProperties.class)
 public class PaymentApplication {
 
 	public static void main(String[] args) {

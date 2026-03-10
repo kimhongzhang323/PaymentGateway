@@ -3,6 +3,8 @@ package com.kimpay.payment.core.service;
 import com.kimpay.payment.core.dto.CreatePaymentRequest;
 import com.kimpay.payment.core.dto.PaymentResponse;
 import com.kimpay.payment.core.dto.RefundPaymentRequest;
+import com.kimpay.payment.core.event.PaymentEvent;
+import com.kimpay.payment.core.event.PaymentEventPublisher;
 import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.*;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Locale;
 
 @Service
@@ -27,6 +30,7 @@ public class PaymentService {
     private final TransactionLogRepository transactionLogRepository;
     private final UserRepository userRepository;
     private final MerchantRepository merchantRepository;
+    private final PaymentEventPublisher paymentEventPublisher;
 
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
@@ -49,6 +53,7 @@ public class PaymentService {
 
         transaction = transactionRepository.save(transaction);
         logEvent(transaction.getId(), "AUTHORIZED", "Transaction authorized");
+        publishEvent("AUTHORIZED", transaction, "Transaction authorized");
 
         try {
             if (request.walletId() != null) {
@@ -60,11 +65,13 @@ public class PaymentService {
             transaction.capture();
             transaction = transactionRepository.save(transaction);
             logEvent(transaction.getId(), "CAPTURED", "Transaction captured");
+            publishEvent("CAPTURED", transaction, "Transaction captured");
             return PaymentResponse.from(transaction);
         } catch (RuntimeException ex) {
             transaction.markFailed();
             transactionRepository.save(transaction);
             logEvent(transaction.getId(), "FAILED", ex.getMessage());
+            publishEvent("FAILED", transaction, ex.getMessage());
             throw ex;
         }
     }
@@ -118,6 +125,7 @@ public class PaymentService {
         transaction.refund();
         transaction = transactionRepository.save(transaction);
         logEvent(transactionId, "REFUNDED", "Transaction refunded");
+        publishEvent("REFUNDED", transaction, request.reason());
 
         return PaymentResponse.from(transaction);
     }
@@ -191,5 +199,19 @@ public class PaymentService {
         log.setEvent(event);
         log.setMessage(message);
         transactionLogRepository.save(log);
+    }
+
+    private void publishEvent(String eventType, Transaction transaction, String message) {
+        paymentEventPublisher.publish(new PaymentEvent(
+                eventType,
+                transaction.getId(),
+                transaction.getUserId(),
+                transaction.getMerchantId(),
+                transaction.getAmount(),
+                transaction.getCurrency(),
+                transaction.getStatus(),
+                message,
+                LocalDateTime.now()
+        ));
     }
 }

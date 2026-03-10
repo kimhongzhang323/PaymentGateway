@@ -37,6 +37,8 @@ payment:
     tag-length: 128
     key-provider: env
     key-base64: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+  kafka:
+    enabled: false
 
 # Logging
 logging:
