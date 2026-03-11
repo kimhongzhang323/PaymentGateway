@@ -257,3 +257,22 @@ if (lock.tryLock(5, 10, TimeUnit.SECONDS)) {
 **C. Distributed Locking (Redisson)**
 - **Race Condition Prevention:** Standard PostgreSQL pessimistic locking (`SELECT ... FOR UPDATE`) is heavily supplemented by **Redisson**, a distributed Java Redis client.
 - **Wallet Protection:** When executing a wallet debit, `PaymentService` attempts to acquire a Redisson lock: `payment:lock:wallet:{walletId}` with a strict 10-second lease time and a 5-second wait time. This establishes a cross-JVM thread-safe environment, ensuring that a user double-tapping a "Pay" button doesn't accidentally overdraft their wallet across two different load-balanced Spring Boot instances.
+
+### 4. High Concurrency & High TPS Handling Strategy
+When the platform is subjected to flash sales or sudden surges in payment attempts (High Transactions-Per-Second), the system is designed to gracefully absorb the load rather than crashing. KimPay handles concurrency through multiple architectural mechanisms:
+
+**A. Asynchronous Offloading**
+- During a high-TPS event, the API prevents JVM threads from acting on slow, blocking operations like sending emails or writing audit logs. By publishing to **Kafka**, the API simply commits the core transaction to PostgreSQL and immediately returns a `200 OK` or `201 Created` to the client. The surrounding heavy-lifting is executed later by Kafka consumers, keeping Tomcat thread pools open.
+
+**B. Database Connection Pooling**
+- Found in `application.yml`, the system relies on **HikariCP** (a blazing-fast JDBC connection pool). The pool strictly manages a minimum of 5 and a maximum of 10 connections per JVM instance, ensuring the underlying PostgreSQL database doesn't suffer from connection exhaustion during a traffic spike.
+- Combined with `batch_size: 20` defined in hibernate properties, bulk processes are batched and executed optimally.
+
+**C. Redis Memory Shifting**
+- As showcased above, operations like validating a merchant or retrieving idempotency limits are entirely offloaded to **Redis** (which operates completely in RAM, responding in sub-milliseconds). This drops the number of queries reaching the PostgreSQL database by roughly 50% per payment attempt, providing the database breathing room to handle the actual insertions.
+
+**D. Concurrency Thread Safety**
+- Concurrency fundamentally risks "Race Conditions" where two HTTP threads attempt to subtract from the same balance simultaneously. 
+- The system handles this via a two-layer defense mechanism: 
+  1. **Application Layer (Fast):** Redisson locks (e.g. `payment:lock:wallet:123`) enforce a strict single-file line across all application nodes.
+  2. **Database Layer (Absolute):** Even if the cache fails, queries execute `SELECT ... FOR UPDATE`, forcing PostgreSQL to apply a pessimistic row-level lock. Only one transaction is allowed to deduct balance at any absolute millisecond.
