@@ -191,13 +191,69 @@ To keep the primary API fast, synchronous operations are restricted to critical 
 - **Topics & Keys:** Events are broadcasted to the topic defined in `PAYMENT_KAFKA_TOPIC` (default: `payment.events`). The `transactionId` acts as the Kafka message key, guaranteeing that all events for a specific transaction (e.g., `AUTHORIZED` -> `CAPTURED` -> `REFUNDED`) are routed to the same Kafka partition, thus preserving strict chronological order for downstream consumers.
 - **Consumers:** External microservices (like Email/SMS Notification Services, Accounting Ledgers, or Fraud Analysis tools) consume these events independently without affecting the payment gateway's performance.
 
+**Example Usage**:
+```java
+// Spring Boot publishes the payment status asynchronously via KafkaTemplate
+paymentEventPublisher.publish(new PaymentEvent(
+    "CAPTURED", 
+    transaction.getId(), 
+    transaction.getUserId(), 
+    transaction.getMerchantId(), 
+    transaction.getAmount(), 
+    transaction.getCurrency(), 
+    transaction.getStatus(), 
+    "Payment captured successfully", 
+    LocalDateTime.now()
+));
+```
+
 ### 3. Memory & High-TPS Utilities (Redis)
 KimPay utilizes Redis 7 for high-speed, volatile data management across two primary domains:
 
 **A. Distributed Caching (StringRedisTemplate)**
 - **Merchant Validation:** To prevent overwhelming PostgreSQL during high traffic, merchant existence is cached under `payment:merchant:exists:{merchantId}` with a 1-hour TTL.
-- **Idempotency Checks:** Duplicate `POST` requests are caught by searching for `payment:idempotency:{idempotencyKey}`. If a match is found, the system immediately returns the cached transaction, shielding the database from duplicate inserts.
 
-**B. Distributed Locking (Redisson)**
+**Example Usage (Merchant Cache)**:
+```java
+String merchantCacheKey = "payment:merchant:exists:" + request.merchantId();
+if (Boolean.FALSE.equals(redisTemplate.hasKey(merchantCacheKey))) {
+    if (!merchantRepository.existsById(request.merchantId())) {
+        throw new IllegalArgumentException("Merchant not found");
+    }
+    // High TPS save: Caches merchant in memory for 1 Hour
+    redisTemplate.opsForValue().set(merchantCacheKey, "active", 1, TimeUnit.HOURS);
+}
+```
+
+**B. Idempotency Checks (StringRedisTemplate & Redisson)**
+- **Idempotency Logic:** Duplicate `POST` requests are caught by searching for `payment:idempotency:{idempotencyKey}`. If a match is found, the system immediately returns the cached transaction, shielding the database from double charges. We secure the idempotency check itself using a Redisson Distributed Lock.
+
+**Example Usage (Idempotency Key & Redis Lock)**:
+```java
+// 1. Client passes "idempotencyKey" header or body payload (e.g. "order-UUID-123")
+String idempotencyKey = request.idempotencyKey();
+
+// 2. We acquire a distributed lock specific to THIS key to block simultaneous duplicated clicks
+RLock lock = redissonClient.getLock("payment:lock:idempotency:" + idempotencyKey);
+if (lock.tryLock(5, 10, TimeUnit.SECONDS)) {
+    try {
+        String redisKey = "payment:idempotency:" + idempotencyKey;
+        // 3. System checks Redis Cache directly
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(redisKey))) {
+            // Already processed! Return earlier cached transaction from DB immediately
+            return transactionRepository.findByIdempotencyKey(idempotencyKey).get();
+        }
+        
+        // 4. If new, run standard logic and cache key afterwards for 24 Hours
+        PaymentResponse response = processCreatePayment(request);
+        redisTemplate.opsForValue().set(redisKey, "completed", 24, TimeUnit.HOURS);
+        return response;
+    } finally {
+        lock.unlock(); // 5. Release Lock across JVM nodes
+    }
+}
+```
+
+**C. Distributed Locking (Redisson)**
 - **Race Condition Prevention:** Standard PostgreSQL pessimistic locking (`SELECT ... FOR UPDATE`) is heavily supplemented by **Redisson**, a distributed Java Redis client.
 - **Wallet Protection:** When executing a wallet debit, `PaymentService` attempts to acquire a Redisson lock: `payment:lock:wallet:{walletId}` with a strict 10-second lease time and a 5-second wait time. This establishes a cross-JVM thread-safe environment, ensuring that a user double-tapping a "Pay" button doesn't accidentally overdraft their wallet across two different load-balanced Spring Boot instances.
