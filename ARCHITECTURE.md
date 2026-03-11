@@ -176,17 +176,28 @@ erDiagram
 
 ---
 
-## 🛡️ 4. Security & Infrastructure Details
+## 🛡️ 4. Security & Infrastructure Details (Deep Dive)
 
-### 1. Data Encryption (AES-256-GCM)
-The `payment-common` module provides the `EncryptionService` to handle `AES-256-GCM` encryption. It uses JPA attribute converters (like `EncryptedStringConverter`) to automatically encrypt/decrypt sensitive fields (like bank accounts or routing numbers) transparently before saving to PostgreSQL.
-- **Key Source:** Managed via the `PAYMENT_ENCRYPTION_KEY_BASE64` environment variable.
+The KimPay platform leverages advanced infrastructural components to ensure data integrity, speed, and safety in a high-transactions-per-second (TPS) distributed environment.
 
-### 2. Concurrency & Race Conditions (Redisson Distributed Locks)
-Wallet balances and critical state changes are protected by **Redisson Distributed Locks**. Since the application is designed to scale horizontally across multiple instances, standard database locking isn't enough. Redis locks (`payment:lock:wallet:{userId}`) ensure only one thread across the entire cluster can modify a user's wallet at any given moment.
+### 1. Data Encryption (Cryptography)
+All sensitive data (e.g., bank accounts, routing numbers, and QR Payloads) is encrypted using **AES-256-GCM** (Advanced Encryption Standard in Galois/Counter Mode) via the internal `EncryptionService`. 
+- **Keys & Initialization:** It uses a 256-bit symmetric key (`PAYMENT_ENCRYPTION_KEY_BASE64`), a 12-byte secure random Initialization Vector (IV), and a 128-bit authentication tag.
+- **Implementation:** The service generates a new `SecureRandom` IV for every encryption request. The IV is prepended to the ciphertext, enabling the `EncryptedStringConverter` JPA attribute converter to transparently encrypt/decrypt database fields. This guarantees that even if the Postgres database is compromised, PII and financial tokens remain secure.
 
-### 3. High-TPS Optimization (Redis Caching)
-Merchant validation occurs on nearly every transaction route. To avoid continuously hitting the PostgreSQL database during high Transactions Per Second (TPS) events, the `payment-core` caches merchant existence in Redis (`payment:merchant:exists:{id}`) with a 1-hour TTL.
+### 2. Event-Driven Architecture (Apache Kafka)
+To keep the primary API fast, synchronous operations are restricted to critical validations and database commits. Post-transaction workloads are handled asynchronously via Kafka.
+- **Publisher:** `KafkaPaymentEventPublisher` uses Spring's `KafkaTemplate` to serialize `PaymentEvent` objects to JSON using Jackson.
+- **Topics & Keys:** Events are broadcasted to the topic defined in `PAYMENT_KAFKA_TOPIC` (default: `payment.events`). The `transactionId` acts as the Kafka message key, guaranteeing that all events for a specific transaction (e.g., `AUTHORIZED` -> `CAPTURED` -> `REFUNDED`) are routed to the same Kafka partition, thus preserving strict chronological order for downstream consumers.
+- **Consumers:** External microservices (like Email/SMS Notification Services, Accounting Ledgers, or Fraud Analysis tools) consume these events independently without affecting the payment gateway's performance.
 
-### 4. Event-Driven Architecture (Kafka)
-Immediate operations (like DB saves and idempotent checks) happen synchronously. Post-transaction operations are handled asynchronously. `payment-core` publishes events (e.g., `PAYMENT_CAPTURED`, `PAYMENT_REFUNDED`) to **Apache Kafka**, allowing downstream independent microservices (e.g., email service, analytics, accounting ledger) to react.
+### 3. Memory & High-TPS Utilities (Redis)
+KimPay utilizes Redis 7 for high-speed, volatile data management across two primary domains:
+
+**A. Distributed Caching (StringRedisTemplate)**
+- **Merchant Validation:** To prevent overwhelming PostgreSQL during high traffic, merchant existence is cached under `payment:merchant:exists:{merchantId}` with a 1-hour TTL.
+- **Idempotency Checks:** Duplicate `POST` requests are caught by searching for `payment:idempotency:{idempotencyKey}`. If a match is found, the system immediately returns the cached transaction, shielding the database from duplicate inserts.
+
+**B. Distributed Locking (Redisson)**
+- **Race Condition Prevention:** Standard PostgreSQL pessimistic locking (`SELECT ... FOR UPDATE`) is heavily supplemented by **Redisson**, a distributed Java Redis client.
+- **Wallet Protection:** When executing a wallet debit, `PaymentService` attempts to acquire a Redisson lock: `payment:lock:wallet:{walletId}` with a strict 10-second lease time and a 5-second wait time. This establishes a cross-JVM thread-safe environment, ensuring that a user double-tapping a "Pay" button doesn't accidentally overdraft their wallet across two different load-balanced Spring Boot instances.
