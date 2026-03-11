@@ -20,13 +20,7 @@ spring:
   flyway:
     enabled: false
 
-# Disable Supabase for tests
-supabase:
-  enabled: false
-  url: http://localhost:54321
-  api-key: test-key
-  service-role-key: test-key
-  jwt-secret: test-secret
+
 
 # Test encryption key
 payment:

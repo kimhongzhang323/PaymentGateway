@@ -1,8 +1,8 @@
 -- ============================================================================
--- Supabase Initial Schema Migration
+-- PostgreSQL Initial Schema Migration
 -- ============================================================================
 -- This migration creates all tables defined in the ERD for the payment system
--- Run this in your Supabase SQL Editor or use Flyway migration
+-- Run this in your PostgreSQL SQL Editor or use Flyway migration
 -- ============================================================================
 
 -- Enable UUID extension if not already enabled

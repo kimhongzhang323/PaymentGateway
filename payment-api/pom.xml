@@ -36,7 +36,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- PostgreSQL for Supabase -->
+        <!-- PostgreSQL -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -55,12 +55,6 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- Supabase Java Client -->
-        <dependency>
-            <groupId>io.github.jan-tennert.supabase</groupId>
-            <artifactId>postgrest-kt</artifactId>
-            <version>2.0.3</version>
-        </dependency>
 
         <dependency>
             <groupId>org.projectlombok</groupId>

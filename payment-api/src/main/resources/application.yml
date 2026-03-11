@@ -4,11 +4,11 @@ spring:
   application:
     name: payment
 
-  # Supabase PostgreSQL Database Configuration
+  # PostgreSQL Database Configuration
   datasource:
-    url: jdbc:postgresql://${SUPABASE_DB_HOST:db.uktcjfzjyfxoiokeeomw.supabase.co}:${SUPABASE_DB_PORT:5432}/${SUPABASE_DB_NAME:postgres}?sslmode=require
-    username: ${SUPABASE_DB_USER:postgres}
-    password: ${SUPABASE_DB_PASSWORD:}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:payment_gateway}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -57,12 +57,7 @@ spring:
           max-idle: 8
           min-idle: 0
 
-# Supabase Configuration
-supabase:
-  url: ${SUPABASE_URL:https://uktcjfzjyfxoiokeeomw.supabase.co}
-  api-key: ${SUPABASE_ANON_KEY:}
-  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
-  jwt-secret: ${SUPABASE_JWT_SECRET:}
+
 
 payment:
   encryption:

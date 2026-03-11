@@ -71,7 +71,7 @@ Key design principles:
 └──────┴────────────────────────────────────────┘
 
 Infrastructure:
-  PostgreSQL (port 5433) ─── Primary datastore
+  PostgreSQL (port 5432) ─── Primary datastore
   Redis       (port 6379) ─── Caching & distributed locks
   Kafka       (port 9092) ─── Payment event streaming
 ```
@@ -182,7 +182,7 @@ PaymentGateway/
 
 This spins up **PostgreSQL, Redis, and Kafka** locally via Docker, then builds and starts the application — all in one step.
 
-> **Note:** PostgreSQL is mapped to host port **5433** (not the default 5432) to avoid conflicts with any locally installed PostgreSQL instance.
+> **Note:** PostgreSQL is mapped to host port **5432**. Ensure your local port 5432 is available.
 
 **PowerShell (recommended on Windows):**
 ```powershell
@@ -210,9 +210,9 @@ docker-compose up -d
 .\mvnw.cmd clean package -DskipTests
 
 # 3. Set environment variables
-$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5433/payment_gateway"
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/payment_gateway"
 $env:SPRING_DATASOURCE_USERNAME="postgres"
-$env:SPRING_DATASOURCE_PASSWORD="password"
+$env:SPRING_DATASOURCE_PASSWORD="admin"
 $env:REDIS_HOST="localhost"
 $env:KAFKA_BOOTSTRAP_SERVERS="localhost:9092"
 $env:PAYMENT_ENCRYPTION_KEY_BASE64="YXNkZmFzZGZhc2RmYXNkZmFzZGZhc2RmYXNkZmFzZGY="
@@ -424,7 +424,7 @@ docker logs kimpay-kafka
 
 | Service | Container Port | Host Port |
 |---|---|---|
-| PostgreSQL | 5432 | **5433** (mapped to avoid local conflicts) |
+| PostgreSQL | 5432 | **5432** |
 | Redis | 6379 | 6379 |
 | Kafka | 9092 | 9092 |
 | Zookeeper | 2181 | _(internal only)_ |

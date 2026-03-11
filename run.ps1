@@ -10,9 +10,9 @@ Write-Host "`n--- Building Application ---" -ForegroundColor Cyan
 
 Write-Host "`n--- Running Payment Application ---" -ForegroundColor Green
 # Environment variables matching docker-compose
-$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5433/payment_gateway"
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/payment_gateway"
 $env:SPRING_DATASOURCE_USERNAME="postgres"
-$env:SPRING_DATASOURCE_PASSWORD="password"
+$env:SPRING_DATASOURCE_PASSWORD="admin"
 $env:REDIS_HOST="localhost"
 $env:KAFKA_BOOTSTRAP_SERVERS="localhost:9092"
 $env:PAYMENT_ENCRYPTION_KEY_BASE64="YXNkZmFzZGZhc2RmYXNkZmFzZGZhc2RmYXNkZmFzZGY=" # Demo key
