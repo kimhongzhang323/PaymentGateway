@@ -1,5 +1,6 @@
 package com.kimpay.payment.config;
 
+import com.kimpay.payment.security.AsymmetricKeyService;
 import com.kimpay.payment.security.EncryptedStringConverter;
 import com.kimpay.payment.security.EncryptionService;
 import com.kimpay.payment.security.EnvKeyProvider;
@@ -51,6 +52,11 @@ public class EncryptionConfig {
         );
         EncryptedStringConverter.setEncryptionService(service);
         return service;
+    }
+
+    @Bean
+    public AsymmetricKeyService asymmetricKeyService() {
+        return new AsymmetricKeyService();
     }
 }
 

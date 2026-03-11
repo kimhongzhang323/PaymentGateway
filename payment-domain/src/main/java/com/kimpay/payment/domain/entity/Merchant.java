@@ -51,4 +51,7 @@ public class Merchant extends AbstractAuditedEntity {
 
     @Column(name = "status", nullable = false, length = 30)
     private String status;
+
+    @Column(name = "public_key", length = 2048)
+    private String publicKey;
 }
