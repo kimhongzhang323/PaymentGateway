@@ -5,6 +5,7 @@ import com.kimpay.payment.core.dto.PaymentResponse;
 import com.kimpay.payment.core.dto.QRPaymentRequest;
 import com.kimpay.payment.core.dto.RefundPaymentRequest;
 import com.kimpay.payment.core.service.PaymentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    public ResponseEntity<PaymentResponse> createPayment(@RequestBody CreatePaymentRequest request) {
+    public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
         PaymentResponse response = paymentService.createPayment(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -58,7 +59,7 @@ public class PaymentController {
     @PostMapping("/{transactionId}/refund")
     public ResponseEntity<PaymentResponse> refundPayment(
             @PathVariable Long transactionId,
-            @RequestBody RefundPaymentRequest request
+            @Valid @RequestBody RefundPaymentRequest request
     ) {
         return ResponseEntity.ok(paymentService.refundPayment(transactionId, request));
     }
