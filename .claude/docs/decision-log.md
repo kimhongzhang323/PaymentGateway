@@ -24,6 +24,11 @@ Architectural decisions for KimPay. Newest first. Each entry: context → decisi
 **Decision:** Provide optional-infra fallbacks as `@Bean` methods in a `@Configuration` class with `@ConditionalOnMissingBean` — never as conditional `@Component`s. Fixed as "Task 0" before Phase 1 implementation.
 **Consequences:** Context loads reliably with infra disabled; pattern codified in `architecture-principles.md`.
 
+## 2026-05-25 — Security audit findings folded into Phase 1
+**Context:** A security audit of the wired auth chain (after plan Task 6) found gaps the original 12 tasks missed.
+**Decision:** Add to Phase 1 scope: **C-1** fix request-body re-read via a `CachedBodyHttpServletRequest` (ContentCachingRequestWrapper consumes the stream → empty controller body); **M-3/H-1** harden the canonical signing string to `method.path.timestamp.nonce.base64(sha256(body))` and enforce signing for all non-safe methods (incl. PATCH); **H-2** bound request body size; **C-2** enforce object-level authorization (merchant may only act on its own transactions; mutators return 404 on mismatch). Captured as Task 5R and Task 13 in the Phase 1 plan.
+**Consequences:** Canonical signing string changes before any external merchant integrates (no compatibility cost now). Deferred (low risk): BCrypt timing oracle (L-1), malformed-Base64 → 401 not 500 (L-3), per-merchant nonce namespace (M-2).
+
 ## 2026-05-25 — Java version discrepancy (open)
 **Context:** Parent `pom.xml` sets `<java.version>17</java.version>`, but `README`/`ARCHITECTURE.md` state Java 21.
 **Decision:** Treat 17 as authoritative until reconciled; do not use Java 21-only APIs. Reconcile (bump pom to 21 or correct docs) in a dedicated change.
