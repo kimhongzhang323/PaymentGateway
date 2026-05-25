@@ -1,6 +1,9 @@
 spring:
   application:
     name: payment-test
+  redis:
+    redisson:
+      file: classpath:redisson.yaml
 
   # Test datasource configuration (H2 in-memory)
   datasource:
@@ -20,7 +23,12 @@ spring:
   flyway:
     enabled: false
 
-
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      timeout: 2000ms
 
 # Test encryption key
 payment:
