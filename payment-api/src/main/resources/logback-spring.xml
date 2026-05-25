@@ -10,7 +10,7 @@
             <pattern>
                 %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %highlight(%-5level)
                 [${APP_NAME}] [%X{transactionId}] [%X{userId}]
-                %logger{36} - %msg%n
+                %logger{36} - %replace(%msg){'sk_(test|live)_[A-Za-z0-9_-]+','sk_$1_***'}%n
             </pattern>
         </encoder>
     </appender>
@@ -27,7 +27,7 @@
             <pattern>
                 %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level
                 [${APP_NAME}] [%X{transactionId}] [%X{userId}]
-                %logger{36} - %msg%n
+                %logger{36} - %replace(%msg){'sk_(test|live)_[A-Za-z0-9_-]+','sk_$1_***'}%n
             </pattern>
         </encoder>
     </appender>
@@ -48,7 +48,7 @@
             <pattern>
                 %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level
                 [${APP_NAME}] [%X{transactionId}] [%X{userId}]
-                %logger{36} - %msg%n
+                %logger{36} - %replace(%msg){'sk_(test|live)_[A-Za-z0-9_-]+','sk_$1_***'}%n
             </pattern>
         </encoder>
     </appender>
@@ -60,7 +60,7 @@
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [${APP_NAME}] DIGEST - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [${APP_NAME}] DIGEST - %replace(%msg){'sk_(test|live)_[A-Za-z0-9_-]+','sk_$1_***'}%n</pattern>
         </encoder>
     </appender>
 
