@@ -91,6 +91,16 @@ class PaymentControllerIntegrationTest {
         wallet.setBalance(new BigDecimal("100.00"));
         wallet = walletRepository.save(wallet);
         walletId = wallet.getId();
+
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                new com.kimpay.payment.security.MerchantPrincipal(merchantId, "pk_test_it"), null,
+                java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_MERCHANT")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearSecurityContext() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     @Test

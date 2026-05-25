@@ -35,6 +35,13 @@ public class ApiExceptionHandler {
                 .body(new ErrorResponse(ErrorCode.DUPLICATE_TRANSACTION.code(), ex.getMessage()));
     }
 
+    @ExceptionHandler(com.kimpay.payment.exception.ResourceAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(com.kimpay.payment.exception.ResourceAccessDeniedException ex) {
+        log.warn("Ownership check failed");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(ErrorCode.RESOURCE_NOT_FOUND.code(), ErrorCode.RESOURCE_NOT_FOUND.message()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unhandled exception", ex);
