@@ -28,7 +28,7 @@ class RequestSignatureFilterTest {
     void setUp() {
         signatureService = mock(SignatureVerificationService.class);
         nonceService = mock(NonceService.class);
-        filter = new RequestSignatureFilter(signatureService, nonceService, 300);
+        filter = new RequestSignatureFilter(signatureService, nonceService, 300, 1_048_576);
         var auth = new UsernamePasswordAuthenticationToken(
                 new MerchantPrincipal(7L, "pk_test_abc"), null,
                 List.of(new SimpleGrantedAuthority("ROLE_MERCHANT")));
@@ -40,26 +40,42 @@ class RequestSignatureFilterTest {
         SecurityContextHolder.clearContext();
     }
 
-    private MockHttpServletRequest signedRequest(String body) {
+    private MockHttpServletRequest signedRequest(String body, String nonce) {
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/api/payments");
         req.setContent(body.getBytes());
         req.addHeader("X-Kimpay-Timestamp", String.valueOf(System.currentTimeMillis() / 1000));
-        req.addHeader("X-Kimpay-Nonce", "nonce-1");
+        req.addHeader("X-Kimpay-Nonce", nonce);
         req.addHeader("X-Kimpay-Signature", "c2lnbmF0dXJl");
         return req;
     }
 
     @Test
     void passesWhenSignatureValidAndNonceFresh() throws Exception {
-        when(nonceService.registerNonce(eq("pk_test_abc"), eq("nonce-1"))).thenReturn(true);
+        when(nonceService.registerNonce(eq("pk_test_abc"), eq("n1"))).thenReturn(true);
         when(signatureService.verifyMerchantSignature(eq(7L), anyString(), eq("c2lnbmF0dXJl"))).thenReturn(true);
         MockHttpServletResponse res = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
-        filter.doFilter(signedRequest("{\"amount\":10}"), res, chain);
+        filter.doFilter(signedRequest("{\"amount\":10}", "n1"), res, chain);
 
         verify(chain).doFilter(any(), any());
         assertThat(res.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void canonicalStringBindsMethodPathAndBodyHash() throws Exception {
+        when(nonceService.registerNonce(anyString(), anyString())).thenReturn(true);
+        when(signatureService.verifyMerchantSignature(anyLong(), anyString(), anyString())).thenReturn(true);
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        MockHttpServletRequest req = signedRequest("{\"amount\":10}", "n2");
+        filter.doFilter(req, res, chain);
+
+        org.mockito.ArgumentCaptor<String> canonical = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(signatureService).verifyMerchantSignature(eq(7L), canonical.capture(), anyString());
+        assertThat(canonical.getValue()).startsWith("POST./api/payments.");
+        assertThat(canonical.getValue()).doesNotContain("{\"amount\":10}"); // body is hashed, not raw
     }
 
     @Test
@@ -69,7 +85,7 @@ class RequestSignatureFilterTest {
         MockHttpServletResponse res = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
-        filter.doFilter(signedRequest("{\"amount\":10}"), res, chain);
+        filter.doFilter(signedRequest("{\"amount\":10}", "n3"), res, chain);
 
         verify(chain, never()).doFilter(any(), any());
         assertThat(res.getStatus()).isEqualTo(401);
@@ -82,7 +98,7 @@ class RequestSignatureFilterTest {
         MockHttpServletResponse res = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
-        filter.doFilter(signedRequest("{\"amount\":10}"), res, chain);
+        filter.doFilter(signedRequest("{\"amount\":10}", "n4"), res, chain);
 
         verify(chain, never()).doFilter(any(), any());
         assertThat(res.getStatus()).isEqualTo(401);
@@ -95,7 +111,7 @@ class RequestSignatureFilterTest {
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/api/payments");
         req.setContent("{}".getBytes());
         req.addHeader("X-Kimpay-Timestamp", String.valueOf(System.currentTimeMillis() / 1000 - 10_000));
-        req.addHeader("X-Kimpay-Nonce", "nonce-2");
+        req.addHeader("X-Kimpay-Nonce", "n5");
         req.addHeader("X-Kimpay-Signature", "c2ln");
         MockHttpServletResponse res = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
@@ -104,5 +120,17 @@ class RequestSignatureFilterTest {
 
         verify(chain, never()).doFilter(any(), any());
         assertThat(res.getStatus()).isEqualTo(401);
+    }
+
+    @Test
+    void doesNotFilterSafeGet() {
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/api/payments/1");
+        assertThat(filter.shouldNotFilter(req)).isTrue();
+    }
+
+    @Test
+    void filtersPatch() {
+        MockHttpServletRequest req = new MockHttpServletRequest("PATCH", "/api/payments/1");
+        assertThat(filter.shouldNotFilter(req)).isFalse();
     }
 }

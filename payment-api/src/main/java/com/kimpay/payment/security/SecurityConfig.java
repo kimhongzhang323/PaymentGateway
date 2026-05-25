@@ -29,12 +29,13 @@ public class SecurityConfig {
             SignatureVerificationService signatureVerificationService,
             NonceService nonceService,
             RestAuthEntryPoint restAuthEntryPoint,
-            @Value("${payment.security.timestamp-tolerance-seconds:300}") long toleranceSeconds
+            @Value("${payment.security.timestamp-tolerance-seconds:300}") long toleranceSeconds,
+            @Value("${payment.security.max-body-bytes:1048576}") long maxBodyBytes
     ) throws Exception {
 
         ApiKeyAuthFilter apiKeyAuthFilter = new ApiKeyAuthFilter(apiKeyService);
         RequestSignatureFilter signatureFilter =
-                new RequestSignatureFilter(signatureVerificationService, nonceService, toleranceSeconds);
+                new RequestSignatureFilter(signatureVerificationService, nonceService, toleranceSeconds, maxBodyBytes);
 
         http
             .csrf(AbstractHttpConfigurer::disable)
