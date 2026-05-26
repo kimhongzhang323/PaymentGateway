@@ -7,6 +7,7 @@ import com.kimpay.payment.core.dto.RefundPaymentRequest;
 import com.kimpay.payment.core.event.PaymentEvent;
 import com.kimpay.payment.core.event.PaymentEventPublisher;
 import com.kimpay.payment.core.exception.ResourceNotFoundException;
+import com.kimpay.payment.core.psp.*;
 import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.*;
 import com.kimpay.payment.security.EncryptionService;
@@ -46,6 +47,7 @@ public class PaymentService {
     private final QRService qrService;
     private final StringRedisTemplate redisTemplate;
     private final RedissonClient redissonClient;
+    private final PspConnector pspConnector;
 
     private static final String IDEMPOTENCY_PREFIX = "payment:idempotency:";
     private static final String MERCHANT_CACHE_PREFIX = "payment:merchant:exists:";
@@ -113,6 +115,7 @@ public class PaymentService {
         transaction.setUserId(request.userId());
         transaction.setMerchantId(request.merchantId());
         transaction.setPaymentMethodId(request.paymentMethodId());
+        transaction.setWalletId(request.walletId());
         transaction.setAmount(request.amount());
         transaction.setCurrency(normalizeCurrency(request.currency()));
         transaction.setIdempotencyKey(request.idempotencyKey());
@@ -202,7 +205,13 @@ public class PaymentService {
             if (methodId == null) {
                  throw new IllegalArgumentException("Payment method information is missing");
             }
-            processPaymentMethod(methodId, transaction.getUserId());
+            processPaymentMethod(methodId, transaction.getUserId()); // validates method is active
+            PspResult auth = pspConnector.authorize(new PspAuthorizeRequest(
+                    transaction.getId(), methodId, transaction.getAmount(), transaction.getCurrency(), true));
+            transaction.setPspReference(auth.pspReference());
+            if (!auth.isSuccess()) {
+                throw new IllegalStateException("Payment authorization declined");
+            }
         }
 
         transaction.capture();
