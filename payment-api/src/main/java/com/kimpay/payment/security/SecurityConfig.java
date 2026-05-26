@@ -42,7 +42,7 @@ public class SecurityConfig {
             .cors(cors -> {})
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/info", "/api/webhooks/psp").permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(eh -> eh.authenticationEntryPoint(restAuthEntryPoint))
             .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
