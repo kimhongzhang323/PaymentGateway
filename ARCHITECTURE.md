@@ -197,6 +197,15 @@ KimPay enforces a stateless, defense-in-depth request pipeline. Full details and
 - **Object-level authorization:** `AuthorizationGuard` checks `MerchantPrincipal.merchantId` against each resource's owner; cross-tenant access returns **404** to avoid leaking resource existence.
 - **Non-leaking errors:** all failures return only `{ code, message }` (`server.error.include-message: never`); stack traces, SQL, and other tenants' IDs are never exposed.
 
+### 1b. PSP Adapter (Phase 2a)
+
+Card payments flow through a transport-agnostic **`PspConnector`** seam (in `payment-core`, mirroring the `PaymentEventPublisher` pattern) so the gateway is not coupled to any single acquirer.
+
+- **Interface:** `authorize`, `capture`, `voidAuthorization`, `refund` — returning a normalized `PspResult(status, pspReference, declineReason)`. Implementations must never log PAN/CVV/secret material.
+- **Default implementation:** `MockAcquirerConnector`, a deterministic offline connector registered as a `@Bean` with `@ConditionalOnMissingBean`. It approves by default and declines any amount whose minor units equal `.01`, so decline paths are testable without a real acquirer (CI stays green with no external SDK). A real `StripeConnector` (test mode), property-selectable, arrives in Phase 2b.
+- **Routing:** **wallet-backed** transactions (`Transaction.walletId != null`) use the internal ledger (Redisson + pessimistic DB lock); **card-backed** transactions route authorize/capture/void/refund through the connector.
+- **Lifecycle context:** `Transaction` persists `wallet_id` and `psp_reference` (Flyway `V4`). This lets a separated (authorize-then-capture) flow find the wallet to debit or the PSP reference to capture — closing the previously-deferred manual-capture gap — and `psp_reference` is the key for reconciling inbound PSP webhooks (Phase 2b).
+
 ### 2. Event-Driven Architecture (Apache Kafka)
 To keep the primary API fast, synchronous operations are restricted to critical validations and database commits. Post-transaction workloads are handled asynchronously via Kafka.
 - **Publisher:** `KafkaPaymentEventPublisher` uses Spring's `KafkaTemplate` to serialize `PaymentEvent` objects to JSON using Jackson.
