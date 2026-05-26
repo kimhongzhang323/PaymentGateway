@@ -184,6 +184,18 @@ The KimPay platform leverages advanced infrastructural components to ensure data
 All sensitive data (e.g., bank accounts, routing numbers, and QR Payloads) is encrypted using **AES-256-GCM** (Advanced Encryption Standard in Galois/Counter Mode) via the internal `EncryptionService`. 
 - **Keys & Initialization:** It uses a 256-bit symmetric key (`PAYMENT_ENCRYPTION_KEY_BASE64`), a 12-byte secure random Initialization Vector (IV), and a 128-bit authentication tag.
 - **Implementation:** The service generates a new `SecureRandom` IV for every encryption request. The IV is prepended to the ciphertext, enabling the `EncryptedStringConverter` JPA attribute converter to transparently encrypt/decrypt database fields. This guarantees that even if the Postgres database is compromised, PII and financial tokens remain secure.
+- **Selectable key provider:** the data-encryption key source is switchable via `payment.encryption.key-provider` — `env` (default, Base64 key from configuration) for local/single-host, `kms` for shared/deployed environments — with no code change.
+
+### 1a. Phase 1 Security Foundation (Authentication, Signing, Authorization)
+
+KimPay enforces a stateless, defense-in-depth request pipeline. Full details and a worked `curl` example live in [`docs/security/authentication.md`](docs/security/authentication.md).
+
+- **Filter chain order:** `ApiKeyAuthFilter` → `RequestSignatureFilter` → controller. Sessions are stateless (no cookie, no CSRF flow). All endpoints require authentication except `/actuator/health` and `/actuator/info`.
+- **API-key authentication:** merchants present `Authorization: Bearer <keyId>:<secret>`. The key ID is stored in plaintext; the secret is stored **only as a BCrypt hash** and shown once at issuance. On success the context holds a `MerchantPrincipal(merchantId, keyId)` with `ROLE_MERCHANT`.
+- **Request signing (mutating methods):** every non-safe request carries `X-Kimpay-Timestamp`, `X-Kimpay-Nonce`, and `X-Kimpay-Signature`. The RSA `SHA256withRSA` signature is computed over the canonical string `method + "." + requestURI + "." + timestamp + "." + nonce + "." + base64(sha256(body))`, binding method, path, and body together. Verified against the merchant's stored X.509 RSA public key.
+- **Replay protection:** a ±300s timestamp window plus a single-use nonce recorded in Redis (`payment:nonce:<keyId>:<nonce>`, atomic `SET ... NX`, TTL 600s). The nonce is registered **only after** the signature verifies, so a forged request cannot burn a victim's nonce.
+- **Object-level authorization:** `AuthorizationGuard` checks `MerchantPrincipal.merchantId` against each resource's owner; cross-tenant access returns **404** to avoid leaking resource existence.
+- **Non-leaking errors:** all failures return only `{ code, message }` (`server.error.include-message: never`); stack traces, SQL, and other tenants' IDs are never exposed.
 
 ### 2. Event-Driven Architecture (Apache Kafka)
 To keep the primary API fast, synchronous operations are restricted to critical validations and database commits. Post-transaction workloads are handled asynchronously via Kafka.

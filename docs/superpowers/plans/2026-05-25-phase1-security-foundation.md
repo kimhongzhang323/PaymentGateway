@@ -1676,3 +1676,32 @@ git commit -m "docs(security): document Phase 1 authentication and request signi
 - **Spec coverage:** auth & authz (Tasks 4, 6), API keys hashed at rest (Tasks 1, 2), request signing reusing existing services (Task 5), replay protection (Tasks 3, 5), input hardening (Task 7), non-leaking error contract + CORS (Tasks 6, 8, 11), secrets/KMS selection (Task 11), log redaction (Task 9), PCI posture via no-PAN-storage + masking (Task 9). **Deferred within Phase 1 (documented):** admin JWT auth (no admin endpoints exist yet — YAGNI until Phase 2 introduces them); full versioned-ciphertext key rotation (Task 11 wires provider selection; rotation mechanics deferred to a focused follow-up). These deferrals are intentional and noted so the executor does not treat them as gaps.
 - **Type consistency:** `MerchantPrincipal(Long merchantId, String keyId)` used identically in Tasks 4, 5, 6, 10. `ApiKeyService.IssuedKey(keyId, secret)` and `authenticate(keyId, secret) -> Optional<Long>` consistent across Tasks 2, 4, 10. `NonceService.registerNonce(keyId, nonce) -> boolean` consistent across Tasks 3, 5. Canonical signing string `timestamp + "." + nonce + "." + body` identical in Tasks 5 and 10.
 - **Open verification for executor:** confirm `AbstractAuditedEntity` column names (Task 1) and existing `EncryptionConfig`/provider constructor signatures (Task 11) before editing; both steps instruct reading the file first.
+
+---
+
+## Addendum — Tasks added from the 2026-05-25 security audit of the wired chain
+
+A security audit after Task 6 found gaps not covered by Tasks 1–12. These are in-scope for Phase 1 (the "secured" mandate) and are inserted before the final review. Each is TDD with its own commit.
+
+### Task 5R (rework of Task 5): Cached-body wrapper + hardened canonical string
+**Fixes audit C-1, H-1, H-2, M-3.**
+- Create `payment-api/.../security/CachedBodyHttpServletRequest.java`: a `HttpServletRequestWrapper` that reads the body once into a `byte[]` and returns a fresh `ServletInputStream` (over `ByteArrayInputStream`) on every `getInputStream()`/`getReader()` call, so the downstream controller still deserializes the body.
+- In `RequestSignatureFilter`: wrap the request with `CachedBodyHttpServletRequest` FIRST, read the cached bytes for signing, and pass the wrapper downstream. Add a `@WebMvcTest`-style or `@SpringBootTest` test asserting the controller actually receives the body (a signed POST reaches the controller with a non-empty, correctly-deserialized DTO).
+- **Canonical string** changes to bind method + path + a content hash:
+  `canonical = method + "." + path + "." + timestamp + "." + nonce + "." + base64(sha256(body))`
+  where `path` is `request.getRequestURI()` and `method` is `request.getMethod()`. Update the unit tests, the E2E (Task 10), and the docs (Task 12) to the new canonical form.
+- **Signing scope:** require signing for any request that is not a safe method (treat everything except `GET`, `HEAD`, `OPTIONS`, `TRACE` as mutating — this includes `PATCH`). Replace the `{POST,PUT,DELETE}` allowlist in `shouldNotFilter` accordingly.
+- **Body size bound:** reject (`401`/`413`) when `Content-Length` exceeds a configured cap (`payment.security.max-body-bytes`, default `1_048_576`) before reading.
+
+### Task 13: Object-level authorization (ownership enforcement)
+**Fixes audit C-2.**
+- Add an authorization gate so a merchant can only act on its own resources. The authenticated `MerchantPrincipal.merchantId()` (from the SecurityContext) must match the target resource's owner.
+- **Mutators (highest risk — must):** `capture`, `void`, `refund` load the `Transaction` and verify `transaction.getMerchantId().equals(principalMerchantId)`; otherwise return `404` (not `403`, to avoid resource-existence disclosure). Implement via a small `@Component AuthorizationGuard` used by the controller, or `@PreAuthorize` with a custom bean — choose the approach that is unit-testable.
+- **Reads & lists:** `GET /api/payments/{id}` verifies ownership; `GET /api/payments/merchant/{merchantId}` and `/merchant/{merchantId}/qr` require the path `merchantId` to equal the principal's; `GET /api/payments/user/{userId}` is scoped to transactions belonging to the caller's merchant.
+- Tests: a merchant cannot read/refund/void/capture another merchant's transaction (expect `404`); can act on its own (expect success). Use a helper to obtain `MerchantPrincipal` from the SecurityContext.
+
+### Deferred (recorded, not Phase 1 blocking)
+- **L-1** BCrypt timing oracle on unknown keyId (do a dummy match) — low exploitability given high-entropy keyIds.
+- **L-3** catch `IllegalArgumentException` from malformed Base64 signature → return `false`/`401` instead of `500`.
+- **M-2** nonce namespace per-keyId vs per-merchant — acceptable; revisit if multi-key merchants ship.
+These move to a Phase 1 follow-up or Phase 3 hardening; tracked in `.claude/docs/decision-log.md`.

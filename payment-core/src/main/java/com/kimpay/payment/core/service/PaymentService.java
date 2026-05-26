@@ -6,6 +6,7 @@ import com.kimpay.payment.core.dto.QRPaymentRequest;
 import com.kimpay.payment.core.dto.RefundPaymentRequest;
 import com.kimpay.payment.core.event.PaymentEvent;
 import com.kimpay.payment.core.event.PaymentEventPublisher;
+import com.kimpay.payment.core.exception.ResourceNotFoundException;
 import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.*;
 import com.kimpay.payment.security.EncryptionService;
@@ -148,7 +149,7 @@ public class PaymentService {
     @Transactional
     public PaymentResponse capturePayment(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + transactionId));
+                .orElseThrow(() -> new ResourceNotFoundException());
 
         if (!PaymentStatus.AUTHORIZED.name().equals(transaction.getStatus())) {
             throw new IllegalStateException("Only AUTHORIZED transactions can be captured");
@@ -174,7 +175,7 @@ public class PaymentService {
     @Transactional
     public PaymentResponse voidPayment(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + transactionId));
+                .orElseThrow(() -> new ResourceNotFoundException());
 
         transaction.voidTransaction();
         transaction = transactionRepository.save(transaction);
@@ -211,16 +212,27 @@ public class PaymentService {
         return PaymentResponse.from(transaction);
     }
 
+    /**
+     * Process a scanned QR payment.
+     *
+     * @param request               the scan request (payer wallet/user + encrypted QR payload)
+     * @param authenticatedMerchantId the merchant making the call; MUST own the QR being collected.
+     *                                A mismatch yields {@link ResourceNotFoundException} (404) so a
+     *                                merchant cannot forge payments against another merchant's QR.
+     */
     @Transactional
-    public PaymentResponse processQRPayment(QRPaymentRequest request) {
+    public PaymentResponse processQRPayment(QRPaymentRequest request, Long authenticatedMerchantId) {
+        Long merchantId;
+        BigDecimal amount;
+        String currency;
         try {
             // Decrypt the QR data using standard AES-GCM (no mocking)
             String decryptedData = encryptionService.decrypt(request.qrData());
-            
+
             // Expected format: mId:123|amt:10.00|cur:USD|ts:1710101010
             String merchantIdStr = null;
-            BigDecimal amount = null;
-            String currency = null;
+            amount = null;
+            currency = null;
 
             String[] pairs = decryptedData.split("\\|");
             for (String pair : pairs) {
@@ -236,25 +248,29 @@ public class PaymentService {
             if (merchantIdStr == null || amount == null || currency == null) {
                 throw new IllegalArgumentException("Invalid QR payload");
             }
-
-            Long merchantId = Long.parseLong(merchantIdStr);
-
-            CreatePaymentRequest createRequest = new CreatePaymentRequest(
-                request.userId(),
-                merchantId,
-                request.paymentMethodId(),
-                request.walletId(),
-                amount,
-                currency,
-                true, // Auto-capture for retail QR scans
-                request.idempotencyKey()
-            );
-
-            return createPayment(createRequest);
+            merchantId = Long.parseLong(merchantIdStr);
         } catch (Exception e) {
             log.error("QR processing failed", e);
             throw new IllegalArgumentException("QR Payment Failed: " + e.getMessage());
         }
+
+        // Object-level authorization: a merchant may only collect against its OWN QR code.
+        if (authenticatedMerchantId == null || !authenticatedMerchantId.equals(merchantId)) {
+            throw new ResourceNotFoundException();
+        }
+
+        CreatePaymentRequest createRequest = new CreatePaymentRequest(
+            request.userId(),
+            merchantId,
+            request.paymentMethodId(),
+            request.walletId(),
+            amount,
+            currency,
+            true, // Auto-capture for retail QR scans
+            request.idempotencyKey()
+        );
+
+        return createPayment(createRequest);
     }
 
     public String generateMerchantQRImage(Long merchantId, BigDecimal amount, String currency) {
@@ -271,7 +287,7 @@ public class PaymentService {
     @Transactional(readOnly = true)
     public PaymentResponse getPayment(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + transactionId));
+                .orElseThrow(() -> new ResourceNotFoundException());
         return PaymentResponse.from(transaction);
     }
 
@@ -282,7 +298,7 @@ public class PaymentService {
         }
 
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + transactionId));
+                .orElseThrow(() -> new ResourceNotFoundException());
 
         if (!PaymentStatus.CAPTURED.name().equals(transaction.getStatus()) &&
                 !PaymentStatus.PARTIALLY_REFUNDED.name().equals(transaction.getStatus())) {

@@ -5,6 +5,7 @@ import com.kimpay.payment.security.EncryptedStringConverter;
 import com.kimpay.payment.security.EncryptionService;
 import com.kimpay.payment.security.EnvKeyProvider;
 import com.kimpay.payment.security.KeyProvider;
+import com.kimpay.payment.security.KmsKeyProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,14 +40,33 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class EncryptionConfig {
 
+    /**
+     * Selectable data-encryption key source. {@code env} (default) reads a Base64 key
+     * from configuration for local / single-host use; {@code kms} unwraps the key via a
+     * KMS in shared / deployed environments. Switched with {@code payment.encryption.key-provider}
+     * — no code change needed to move to KMS.
+     * <p>
+     * Selection is done in-bean rather than with {@code @ConditionalOnProperty} to keep
+     * payment-common free of a spring-boot-autoconfigure dependency.
+     */
+    @Bean
+    public KeyProvider keyProvider(
+            @Value("${payment.encryption.key-provider:env}") String provider,
+            @Value("${payment.encryption.key-base64:}") String base64Key
+    ) {
+        if ("kms".equalsIgnoreCase(provider)) {
+            return new KmsKeyProvider();
+        }
+        return new EnvKeyProvider(base64Key);
+    }
+
     @Bean
     public EncryptionService encryptionService(
-            @Value("${payment.encryption.key-base64}") String base64Key,
+            KeyProvider keyProvider,
             @Value("${payment.encryption.algorithm}") String algorithm,
             @Value("${payment.encryption.iv-size}") int ivSize,
             @Value("${payment.encryption.tag-length}") int tagLength
     ) {
-        KeyProvider keyProvider = new EnvKeyProvider(base64Key);
         EncryptionService service = new EncryptionService(
                 keyProvider, algorithm, ivSize, tagLength
         );

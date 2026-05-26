@@ -65,8 +65,12 @@ payment:
     aes-key-size: 256
     iv-size: 12
     tag-length: 128
-    key-provider: env
+    # `env` for local; set PAYMENT_KEY_PROVIDER=kms in shared/deployed environments.
+    key-provider: ${PAYMENT_KEY_PROVIDER:env}
     key-base64: ${PAYMENT_ENCRYPTION_KEY_BASE64:}
+  security:
+    timestamp-tolerance-seconds: ${SECURITY_TS_TOLERANCE:300}
+    max-body-bytes: ${SECURITY_MAX_BODY_BYTES:1048576}
   kafka:
     enabled: ${PAYMENT_KAFKA_ENABLED:true}
     payment-topic: ${PAYMENT_KAFKA_TOPIC:payment.events}
@@ -85,5 +89,6 @@ logging:
 server:
   port: ${PORT:8080}
   error:
-    include-message: always
-    include-binding-errors: always
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
