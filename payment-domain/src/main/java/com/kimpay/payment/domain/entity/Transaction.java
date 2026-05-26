@@ -53,6 +53,12 @@ public class Transaction {
     @Column(name = "payment_method_id")
     private Long paymentMethodId;
 
+    @Column(name = "wallet_id")
+    private Long walletId;
+
+    @Column(name = "psp_reference", length = 100)
+    private String pspReference;
+
     @Column(name = "amount", nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;
 

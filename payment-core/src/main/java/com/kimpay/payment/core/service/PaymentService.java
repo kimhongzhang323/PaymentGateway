@@ -7,6 +7,7 @@ import com.kimpay.payment.core.dto.RefundPaymentRequest;
 import com.kimpay.payment.core.event.PaymentEvent;
 import com.kimpay.payment.core.event.PaymentEventPublisher;
 import com.kimpay.payment.core.exception.ResourceNotFoundException;
+import com.kimpay.payment.core.psp.*;
 import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.*;
 import com.kimpay.payment.security.EncryptionService;
@@ -46,6 +47,7 @@ public class PaymentService {
     private final QRService qrService;
     private final StringRedisTemplate redisTemplate;
     private final RedissonClient redissonClient;
+    private final PspConnector pspConnector;
 
     private static final String IDEMPOTENCY_PREFIX = "payment:idempotency:";
     private static final String MERCHANT_CACHE_PREFIX = "payment:merchant:exists:";
@@ -113,6 +115,7 @@ public class PaymentService {
         transaction.setUserId(request.userId());
         transaction.setMerchantId(request.merchantId());
         transaction.setPaymentMethodId(request.paymentMethodId());
+        transaction.setWalletId(request.walletId());
         transaction.setAmount(request.amount());
         transaction.setCurrency(normalizeCurrency(request.currency()));
         transaction.setIdempotencyKey(request.idempotencyKey());
@@ -149,26 +152,32 @@ public class PaymentService {
     @Transactional
     public PaymentResponse capturePayment(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new ResourceNotFoundException());
+                .orElseThrow(ResourceNotFoundException::new);
 
         if (!PaymentStatus.AUTHORIZED.name().equals(transaction.getStatus())) {
             throw new IllegalStateException("Only AUTHORIZED transactions can be captured");
         }
 
-        // For wallet transactions, we need to know which wallet to debit.
-        // In a real system, we'd store the specific walletId or paymentMethodId in the Transaction entity.
-        // For this demo, let's assume we retrieve the wallet from the first associated log or metadata if available.
-        // However, looking at the current schema, we don't store it in Transaction.
-        // Let's perform a basic capture that just updates status if it wasn't a wallet debit,
-        // or re-run the wallet logic if we can find the walletId.
-        
-        // Simplified: In this demo, capture logic usually follows authorization immediately.
-        // If they are separated, we'd need to have stored the parameters.
-        
+        if (transaction.getWalletId() != null) {
+            // Wallet-backed: perform the real debit now, using the persisted wallet.
+            processWalletDebit(transaction.getWalletId(), transaction.getUserId(),
+                    transaction.getAmount(), transaction.getCurrency(), transaction.getId());
+        } else {
+            // Card-backed: capture the previously-authorized PSP reference. Fail loud rather
+            // than silently flip status if no reference was ever stored.
+            if (transaction.getPspReference() == null) {
+                throw new IllegalStateException("Card transaction is missing a PSP reference");
+            }
+            PspResult result = pspConnector.capture(transaction.getPspReference(), transaction.getAmount());
+            if (!result.isSuccess()) {
+                throw new IllegalStateException("PSP capture failed");
+            }
+        }
+
         transaction.capture();
         transaction = transactionRepository.save(transaction);
-        logEvent(transactionId, "CAPTURED", "Manual capture successful");
-        publishEvent("CAPTURED", transaction, "Manual capture");
+        logEvent(transactionId, "CAPTURED", "Capture successful");
+        publishEvent("CAPTURED", transaction, "Capture successful");
         return PaymentResponse.from(transaction);
     }
 
@@ -176,6 +185,17 @@ public class PaymentService {
     public PaymentResponse voidPayment(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException());
+
+        if (transaction.getWalletId() == null) {
+            // Card-backed: void at the PSP. Fail loud if no reference was stored.
+            if (transaction.getPspReference() == null) {
+                throw new IllegalStateException("Card transaction is missing a PSP reference");
+            }
+            PspResult result = pspConnector.voidAuthorization(transaction.getPspReference());
+            if (!result.isSuccess()) {
+                throw new IllegalStateException("PSP void failed");
+            }
+        }
 
         transaction.voidTransaction();
         transaction = transactionRepository.save(transaction);
@@ -202,7 +222,13 @@ public class PaymentService {
             if (methodId == null) {
                  throw new IllegalArgumentException("Payment method information is missing");
             }
-            processPaymentMethod(methodId, transaction.getUserId());
+            processPaymentMethod(methodId, transaction.getUserId()); // validates method is active
+            PspResult auth = pspConnector.authorize(new PspAuthorizeRequest(
+                    transaction.getId(), methodId, transaction.getAmount(), transaction.getCurrency(), true));
+            transaction.setPspReference(auth.pspReference());
+            if (!auth.isSuccess()) {
+                throw new IllegalStateException("Payment authorization declined");
+            }
         }
 
         transaction.capture();
@@ -323,6 +349,17 @@ public class PaymentService {
         refund.setReason(request.reason());
         refund.setStatus("COMPLETED");
         refundRepository.save(refund);
+
+        if (transaction.getWalletId() == null) {
+            // Card-backed: refund at the PSP. Fail loud if no reference was stored.
+            if (transaction.getPspReference() == null) {
+                throw new IllegalStateException("Card transaction is missing a PSP reference");
+            }
+            PspResult result = pspConnector.refund(transaction.getPspReference(), request.amount());
+            if (!result.isSuccess()) {
+                throw new IllegalStateException("PSP refund failed");
+            }
+        }
 
         walletTransactionRepository.findFirstByTransactionIdAndTypeOrderByCreatedAtDesc(transactionId, WALLET_DEBIT)
                 .ifPresent(debit -> {
