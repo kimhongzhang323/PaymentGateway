@@ -19,8 +19,9 @@ public class JournalEntry extends AbstractCreatedAtEntity {
     @Column(name = "transaction_id", nullable = false)
     private Long transactionId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "event_type", nullable = false, length = 20)
-    private String eventType;
+    private EntryEventType eventType;
 
     @Column(length = 255)
     private String description;

@@ -23,8 +23,9 @@ public class JournalLine extends AbstractCreatedAtEntity {
     @Column(name = "account_id", nullable = false)
     private Long accountId;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 6)
-    private String direction;
+    private EntryDirection direction;
 
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;

@@ -23,14 +23,16 @@ public class LedgerAccount extends AbstractCreatedAtEntity {
     @Column(nullable = false, length = 80)
     private String code;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "owner_type", nullable = false, length = 30)
-    private String ownerType;
+    private AccountOwnerType ownerType;
 
     @Column(name = "owner_id")
     private Long ownerId;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String classification;
+    private AccountClassification classification;
 
     @Column(nullable = false, length = 3)
     private String currency;
