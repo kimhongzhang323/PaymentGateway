@@ -28,8 +28,14 @@ public class WebhookDispatchService {
     private final RestClient restClient;
 
     public void dispatch(WebhookDelivery delivery) {
-        WebhookEndpoint endpoint = endpointRepo.findById(delivery.getEndpointId())
-                .orElseThrow(() -> new IllegalStateException("Endpoint not found: " + delivery.getEndpointId()));
+        WebhookEndpoint endpoint = endpointRepo.findById(delivery.getEndpointId()).orElse(null);
+        if (endpoint == null) {
+            log.error("Endpoint {} not found for delivery {} — marking DEAD", delivery.getEndpointId(), delivery.getId());
+            delivery.setStatus(WebhookDeliveryStatus.DEAD.name());
+            delivery.setLastResponse("Endpoint not found");
+            deliveryRepo.save(delivery);
+            return;
+        }
 
         long ts = Instant.now().getEpochSecond();
         String signature = "sha256=" + hmac.sign(ts + "." + delivery.getPayload(), endpoint.getSecret());

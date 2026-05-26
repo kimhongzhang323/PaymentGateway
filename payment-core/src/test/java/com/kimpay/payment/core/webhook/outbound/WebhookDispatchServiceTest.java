@@ -135,6 +135,18 @@ class WebhookDispatchServiceTest {
     }
 
     @Test
+    void dispatch_endpointNotFound_marksDeliveryDead() {
+        WebhookDelivery del = delivery(99L, 0);
+        when(endpointRepo.findById(99L)).thenReturn(Optional.empty());
+
+        service.dispatch(del);
+
+        ArgumentCaptor<WebhookDelivery> cap = ArgumentCaptor.forClass(WebhookDelivery.class);
+        verify(deliveryRepo).save(cap.capture());
+        assertThat(cap.getValue().getStatus()).isEqualTo(WebhookDeliveryStatus.DEAD.name());
+    }
+
+    @Test
     void retryDelaySeconds_followsExponentialSchedule() {
         assertThat(WebhookDispatchService.retryDelaySeconds(1)).isEqualTo(30);
         assertThat(WebhookDispatchService.retryDelaySeconds(2)).isEqualTo(300);
