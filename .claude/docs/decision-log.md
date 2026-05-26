@@ -33,3 +33,8 @@ Architectural decisions for KimPay. Newest first. Each entry: context → decisi
 **Context:** Parent `pom.xml` sets `<java.version>17</java.version>`, but `README`/`ARCHITECTURE.md` state Java 21.
 **Decision:** Treat 17 as authoritative until reconciled; do not use Java 21-only APIs. Reconcile (bump pom to 21 or correct docs) in a dedicated change.
 **Consequences:** Avoids build/runtime surprises; flagged for follow-up.
+
+## 2026-05-26 — Phase 1 Security Foundation complete
+**Context:** All 12 Phase 1 tasks plus the audit addendum (Tasks 5R, 13) are implemented, tested, and committed on `feat/phase1-security-foundation`. Full suite green (38 tests, 0 failures/errors); an end-to-end `SecuredPaymentE2ETest` exercises the full chain (Bearer auth → RSA signing → body-tamper rejection → Redis nonce replay rejection) with filters enabled.
+**Decision:** Document the hardened canonical signing string and auth scheme in `docs/security/authentication.md` and `ARCHITECTURE.md`. Make the encryption key provider selectable in-bean (`payment.encryption.key-provider` = `env`/`kms`) rather than via `@ConditionalOnProperty`, to avoid pulling `spring-boot-autoconfigure` into the deliberately-lightweight `payment-common` module. Harden `server.error.include-message`/`include-binding-errors`/`include-stacktrace` to `never`.
+**Consequences:** Phase 1 ready for review/merge. KMS path is wired but `KmsKeyProvider` is still a stub (throws `UnsupportedOperationException`) — must be implemented before any non-`env` deployment. Deferred low-risk audit items (L-1 BCrypt timing, L-3 malformed-Base64 → 500, M-2 nonce namespace) remain open for a follow-up.
