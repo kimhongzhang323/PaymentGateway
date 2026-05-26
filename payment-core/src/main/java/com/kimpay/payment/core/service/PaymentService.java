@@ -163,7 +163,11 @@ public class PaymentService {
             processWalletDebit(transaction.getWalletId(), transaction.getUserId(),
                     transaction.getAmount(), transaction.getCurrency(), transaction.getId());
         } else {
-            // Card-backed: capture the previously-authorized PSP reference.
+            // Card-backed: capture the previously-authorized PSP reference. Fail loud rather
+            // than silently flip status if no reference was ever stored.
+            if (transaction.getPspReference() == null) {
+                throw new IllegalStateException("Card transaction is missing a PSP reference");
+            }
             PspResult result = pspConnector.capture(transaction.getPspReference(), transaction.getAmount());
             if (!result.isSuccess()) {
                 throw new IllegalStateException("PSP capture failed");
@@ -182,7 +186,11 @@ public class PaymentService {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException());
 
-        if (transaction.getWalletId() == null && transaction.getPspReference() != null) {
+        if (transaction.getWalletId() == null) {
+            // Card-backed: void at the PSP. Fail loud if no reference was stored.
+            if (transaction.getPspReference() == null) {
+                throw new IllegalStateException("Card transaction is missing a PSP reference");
+            }
             PspResult result = pspConnector.voidAuthorization(transaction.getPspReference());
             if (!result.isSuccess()) {
                 throw new IllegalStateException("PSP void failed");
@@ -342,7 +350,11 @@ public class PaymentService {
         refund.setStatus("COMPLETED");
         refundRepository.save(refund);
 
-        if (transaction.getWalletId() == null && transaction.getPspReference() != null) {
+        if (transaction.getWalletId() == null) {
+            // Card-backed: refund at the PSP. Fail loud if no reference was stored.
+            if (transaction.getPspReference() == null) {
+                throw new IllegalStateException("Card transaction is missing a PSP reference");
+            }
             PspResult result = pspConnector.refund(transaction.getPspReference(), request.amount());
             if (!result.isSuccess()) {
                 throw new IllegalStateException("PSP refund failed");
