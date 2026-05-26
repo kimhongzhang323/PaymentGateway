@@ -39,8 +39,7 @@ public class PaymentController {
 
     @PostMapping("/scan")
     public ResponseEntity<PaymentResponse> scanPayment(@RequestBody QRPaymentRequest request) {
-        // TODO(phase1-followup): enforce QR merchant matches authenticated merchant
-        return ResponseEntity.ok(paymentService.processQRPayment(request));
+        return ResponseEntity.ok(paymentService.processQRPayment(request, authorizationGuard.currentMerchantId()));
     }
 
     @GetMapping("/merchant/{merchantId}/qr")

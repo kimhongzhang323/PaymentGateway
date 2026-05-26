@@ -23,9 +23,21 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex) {
+        // Log the detail server-side, but never echo it to the client: internal messages
+        // ("Transaction not found: 123", "User not found: 7", wrapped exception text) leak
+        // resource existence and internals across tenants.
         log.warn("Bad request: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse(ErrorCode.INVALID_REQUEST.code(), ex.getMessage()));
+                .body(new ErrorResponse(ErrorCode.INVALID_REQUEST.code(), ErrorCode.INVALID_REQUEST.message()));
+    }
+
+    @ExceptionHandler(com.kimpay.payment.core.exception.ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(com.kimpay.payment.core.exception.ResourceNotFoundException ex) {
+        // Identical envelope to an ownership failure so callers cannot distinguish
+        // "does not exist" from "exists but not yours" (no enumeration oracle).
+        log.warn("Resource not found");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(ErrorCode.RESOURCE_NOT_FOUND.code(), ErrorCode.RESOURCE_NOT_FOUND.message()));
     }
 
     @ExceptionHandler(IllegalStateException.class)

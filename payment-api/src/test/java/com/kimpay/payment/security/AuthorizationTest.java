@@ -39,6 +39,7 @@ class AuthorizationTest {
     @Autowired TransactionRepository transactionRepository;
     @Autowired WalletTransactionRepository walletTransactionRepository;
     @Autowired RefundRepository refundRepository;
+    @Autowired com.kimpay.payment.security.EncryptionService encryptionService;
 
     Long userId, merchantA, merchantB, walletId, txnOfB;
 
@@ -109,5 +110,38 @@ class AuthorizationTest {
         authenticateAs(merchantA);
         mockMvc.perform(get("/api/payments/merchant/{id}", merchantB))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void nonExistentTransactionReturns404NotLeakingExistence() throws Exception {
+        // Closes the enumeration oracle: a missing id must look identical to a cross-tenant id.
+        authenticateAs(merchantA);
+        mockMvc.perform(get("/api/payments/{id}", 999_999L))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void merchantCannotScanAnotherMerchantsQr() throws Exception {
+        // A QR encoding merchant B, presented by an authenticated merchant A, must be rejected (IDOR).
+        String qrPayload = String.format("mId:%d|amt:10.00|cur:USD|ts:%d", merchantB, System.currentTimeMillis() / 1000);
+        String encryptedQr = encryptionService.encrypt(qrPayload);
+        authenticateAs(merchantA);
+        mockMvc.perform(post("/api/payments/scan")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "userId", userId, "qrData", encryptedQr, "walletId", walletId))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void merchantCanScanItsOwnQr() throws Exception {
+        String qrPayload = String.format("mId:%d|amt:10.00|cur:USD|ts:%d", merchantB, System.currentTimeMillis() / 1000);
+        String encryptedQr = encryptionService.encrypt(qrPayload);
+        authenticateAs(merchantB);
+        mockMvc.perform(post("/api/payments/scan")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "userId", userId, "qrData", encryptedQr, "walletId", walletId))))
+                .andExpect(status().isOk());
     }
 }
