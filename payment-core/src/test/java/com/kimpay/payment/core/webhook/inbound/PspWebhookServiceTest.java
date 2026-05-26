@@ -86,6 +86,7 @@ class PspWebhookServiceTest {
 
         verify(transactionRepo, never()).findById(any());
         verify(publisher, never()).publish(any());
+        verify(eventRepo, never()).save(any(PspWebhookEvent.class));
     }
 
     @Test
@@ -147,5 +148,29 @@ class PspWebhookServiceTest {
         service.process(payload, body, sig, ts);
 
         assertThat(tx.getStatus()).isEqualTo(PaymentStatus.VOIDED.name());
+    }
+
+    @Test
+    void process_refundEvent_updatesTransactionToRefunded() {
+        long ts = Instant.now().getEpochSecond();
+        PspWebhookPayload payload = new PspWebhookPayload("evt-r", "PAYMENT_REFUNDED", 9L, "REFUNDED", BigDecimal.TEN, "USD");
+        String body = "{}";
+        String sig = sign(ts, body);
+
+        Transaction tx = new Transaction();
+        tx.setId(9L);
+        tx.setMerchantId(1L);
+        tx.setUserId(1L);
+        tx.setAmount(BigDecimal.TEN);
+        tx.setCurrency("USD");
+        tx.authorize();
+        tx.capture(); // refund requires CAPTURED state
+
+        when(eventRepo.existsByEventId("evt-r")).thenReturn(false);
+        when(transactionRepo.findById(9L)).thenReturn(Optional.of(tx));
+
+        service.process(payload, body, sig, ts);
+
+        assertThat(tx.getStatus()).isEqualTo(PaymentStatus.REFUNDED.name());
     }
 }

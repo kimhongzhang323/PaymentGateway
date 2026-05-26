@@ -40,6 +40,9 @@ public class PspWebhookService {
         this.hmac = hmac;
         this.webhookSecret = webhookSecret;
         this.toleranceSeconds = toleranceSeconds;
+        if (this.webhookSecret == null || this.webhookSecret.isBlank()) {
+            throw new IllegalStateException("payment.webhook.psp-secret must be configured");
+        }
     }
 
     @Transactional
@@ -68,6 +71,12 @@ public class PspWebhookService {
     private void reconcile(PspWebhookPayload payload, String rawBody, Consumer<Transaction> transition) {
         Transaction tx = transactionRepo.findById(payload.transactionId())
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + payload.transactionId()));
+
+        if ("PAYMENT_REFUNDED".equals(payload.eventType()) && payload.amount() != null
+                && payload.amount().compareTo(tx.getAmount()) != 0) {
+            log.warn("PSP refund amount {} differs from tx amount {} for txn {} — treating as full refund per current semantics",
+                    payload.amount(), tx.getAmount(), tx.getId());
+        }
 
         try {
             transition.accept(tx);
@@ -100,6 +109,10 @@ public class PspWebhookService {
         event.setEventType(payload.eventType());
         event.setPayload(rawBody);
         event.setProcessedAt(LocalDateTime.now());
-        eventRepo.save(event);
+        try {
+            eventRepo.save(event);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            log.debug("Duplicate PSP webhook event race: {}", payload.eventId());
+        }
     }
 }
