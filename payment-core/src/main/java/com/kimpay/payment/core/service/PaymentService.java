@@ -152,26 +152,28 @@ public class PaymentService {
     @Transactional
     public PaymentResponse capturePayment(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new ResourceNotFoundException());
+                .orElseThrow(ResourceNotFoundException::new);
 
         if (!PaymentStatus.AUTHORIZED.name().equals(transaction.getStatus())) {
             throw new IllegalStateException("Only AUTHORIZED transactions can be captured");
         }
 
-        // For wallet transactions, we need to know which wallet to debit.
-        // In a real system, we'd store the specific walletId or paymentMethodId in the Transaction entity.
-        // For this demo, let's assume we retrieve the wallet from the first associated log or metadata if available.
-        // However, looking at the current schema, we don't store it in Transaction.
-        // Let's perform a basic capture that just updates status if it wasn't a wallet debit,
-        // or re-run the wallet logic if we can find the walletId.
-        
-        // Simplified: In this demo, capture logic usually follows authorization immediately.
-        // If they are separated, we'd need to have stored the parameters.
-        
+        if (transaction.getWalletId() != null) {
+            // Wallet-backed: perform the real debit now, using the persisted wallet.
+            processWalletDebit(transaction.getWalletId(), transaction.getUserId(),
+                    transaction.getAmount(), transaction.getCurrency(), transaction.getId());
+        } else {
+            // Card-backed: capture the previously-authorized PSP reference.
+            PspResult result = pspConnector.capture(transaction.getPspReference(), transaction.getAmount());
+            if (!result.isSuccess()) {
+                throw new IllegalStateException("PSP capture failed");
+            }
+        }
+
         transaction.capture();
         transaction = transactionRepository.save(transaction);
-        logEvent(transactionId, "CAPTURED", "Manual capture successful");
-        publishEvent("CAPTURED", transaction, "Manual capture");
+        logEvent(transactionId, "CAPTURED", "Capture successful");
+        publishEvent("CAPTURED", transaction, "Capture successful");
         return PaymentResponse.from(transaction);
     }
 
