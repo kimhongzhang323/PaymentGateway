@@ -7,9 +7,14 @@ import com.kimpay.payment.core.dto.RefundPaymentRequest;
 import com.kimpay.payment.core.event.PaymentEvent;
 import com.kimpay.payment.core.event.PaymentEventPublisher;
 import com.kimpay.payment.core.exception.ResourceNotFoundException;
+import com.kimpay.payment.core.ledger.LedgerLineRequest;
+import com.kimpay.payment.core.ledger.LedgerPostingRequest;
+import com.kimpay.payment.core.ledger.LedgerService;
 import com.kimpay.payment.core.psp.*;
 import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.*;
+import com.kimpay.payment.domain.entity.EntryDirection;
+import com.kimpay.payment.domain.entity.EntryEventType;
 import com.kimpay.payment.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -48,6 +54,8 @@ public class PaymentService {
     private final StringRedisTemplate redisTemplate;
     private final RedissonClient redissonClient;
     private final PspConnector pspConnector;
+    private final TransactionFeeRepository transactionFeeRepository;
+    private final LedgerService ledgerService;
 
     private static final String IDEMPOTENCY_PREFIX = "payment:idempotency:";
     private static final String MERCHANT_CACHE_PREFIX = "payment:merchant:exists:";
@@ -176,6 +184,7 @@ public class PaymentService {
 
         transaction.capture();
         transaction = transactionRepository.save(transaction);
+        ledgerService.post(buildCapturePosting(transaction));
         logEvent(transactionId, "CAPTURED", "Capture successful");
         publishEvent("CAPTURED", transaction, "Capture successful");
         return PaymentResponse.from(transaction);
@@ -233,6 +242,7 @@ public class PaymentService {
 
         transaction.capture();
         transaction = transactionRepository.save(transaction);
+        ledgerService.post(buildCapturePosting(transaction));
         logEvent(transaction.getId(), "CAPTURED", "Transaction captured");
         publishEvent("CAPTURED", transaction, "Transaction captured");
         return PaymentResponse.from(transaction);
@@ -376,6 +386,8 @@ public class PaymentService {
                     walletTransactionRepository.save(credit);
                 });
 
+        ledgerService.post(buildRefundPosting(transaction, request.amount()));
+
         // Update transaction status based on whether it's fully or partially refunded
         if (request.amount().compareTo(remainingAmount) == 0) {
             transaction.refund();
@@ -475,6 +487,44 @@ public class PaymentService {
         log.setEvent(event);
         log.setMessage(message);
         transactionLogRepository.save(log);
+    }
+
+    private LedgerPostingRequest buildCapturePosting(Transaction transaction) {
+        String payerCode = transaction.getWalletId() != null
+                ? "WALLET:" + transaction.getWalletId()
+                : "SYS:PSP_CLEARING";
+        String merchantCode = "MERCHANT:" + transaction.getMerchantId();
+        String currency = transaction.getCurrency();
+        BigDecimal amount = transaction.getAmount();
+
+        BigDecimal fee = transactionFeeRepository.findAllByTransactionId(transaction.getId())
+                .stream().map(com.kimpay.payment.domain.entity.TransactionFee::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<LedgerLineRequest> lines = new ArrayList<>();
+        lines.add(new LedgerLineRequest(payerCode, currency, EntryDirection.DEBIT, amount));
+        if (fee.compareTo(BigDecimal.ZERO) > 0) {
+            lines.add(new LedgerLineRequest(merchantCode, currency, EntryDirection.CREDIT, amount.subtract(fee)));
+            lines.add(new LedgerLineRequest("SYS:FEE_REVENUE", currency, EntryDirection.CREDIT, fee));
+        } else {
+            lines.add(new LedgerLineRequest(merchantCode, currency, EntryDirection.CREDIT, amount));
+        }
+        return new LedgerPostingRequest(transaction.getId(), EntryEventType.CAPTURE,
+                "Capture txn " + transaction.getId(), lines);
+    }
+
+    private LedgerPostingRequest buildRefundPosting(Transaction transaction, BigDecimal refundAmount) {
+        String payerCode = transaction.getWalletId() != null
+                ? "WALLET:" + transaction.getWalletId()
+                : "SYS:PSP_CLEARING";
+        String merchantCode = "MERCHANT:" + transaction.getMerchantId();
+        String currency = transaction.getCurrency();
+        return new LedgerPostingRequest(transaction.getId(), EntryEventType.REFUND,
+                "Refund txn " + transaction.getId(),
+                List.of(
+                        new LedgerLineRequest(merchantCode, currency, EntryDirection.DEBIT, refundAmount),
+                        new LedgerLineRequest(payerCode, currency, EntryDirection.CREDIT, refundAmount)
+                ));
     }
 
     private void publishEvent(String eventType, Transaction transaction, String message) {
