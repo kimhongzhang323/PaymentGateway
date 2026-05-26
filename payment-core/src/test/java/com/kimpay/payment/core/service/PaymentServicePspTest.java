@@ -2,6 +2,7 @@ package com.kimpay.payment.core.service;
 
 import com.kimpay.payment.core.dto.CreatePaymentRequest;
 import com.kimpay.payment.core.dto.PaymentResponse;
+import com.kimpay.payment.core.dto.RefundPaymentRequest;
 import com.kimpay.payment.core.psp.*;
 import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.Transaction;
@@ -75,6 +76,37 @@ class PaymentServicePspTest {
         ArgumentCaptor<Transaction> saved = ArgumentCaptor.forClass(Transaction.class);
         verify(txnRepo, atLeastOnce()).save(saved.capture());
         assertThat(saved.getAllValues()).anyMatch(t -> "mock_ref_1".equals(t.getPspReference()));
+    }
+
+    @Test
+    void voidingCardTransactionCallsPspVoid() {
+        Transaction t = new Transaction();
+        t.setId(50L); t.setUserId(1L); t.setMerchantId(2L);
+        t.setAmount(new BigDecimal("10.00")); t.setCurrency("USD");
+        t.setPspReference("mock_ref_v"); // card-backed: walletId stays null
+        t.authorize();
+        when(txnRepo.findById(50L)).thenReturn(java.util.Optional.of(t));
+        when(psp.voidAuthorization("mock_ref_v")).thenReturn(PspResult.ok(PspStatus.VOIDED, "mock_ref_v"));
+
+        service.voidPayment(50L);
+
+        verify(psp).voidAuthorization("mock_ref_v");
+    }
+
+    @Test
+    void refundingCardTransactionCallsPspRefund() {
+        Transaction t = new Transaction();
+        t.setId(51L); t.setUserId(1L); t.setMerchantId(2L);
+        t.setAmount(new BigDecimal("10.00")); t.setCurrency("USD");
+        t.setPspReference("mock_ref_r"); // card-backed
+        t.authorize(); t.capture();
+        when(txnRepo.findById(51L)).thenReturn(java.util.Optional.of(t));
+        when(refundRepo.findAllByTransactionId(51L)).thenReturn(java.util.List.of());
+        when(psp.refund(eq("mock_ref_r"), any())).thenReturn(PspResult.ok(PspStatus.REFUNDED, "mock_ref_r"));
+
+        service.refundPayment(51L, new RefundPaymentRequest(new BigDecimal("10.00"), "x"));
+
+        verify(psp).refund(eq("mock_ref_r"), any());
     }
 
     @Test

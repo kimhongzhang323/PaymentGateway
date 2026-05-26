@@ -182,6 +182,13 @@ public class PaymentService {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException());
 
+        if (transaction.getWalletId() == null && transaction.getPspReference() != null) {
+            PspResult result = pspConnector.voidAuthorization(transaction.getPspReference());
+            if (!result.isSuccess()) {
+                throw new IllegalStateException("PSP void failed");
+            }
+        }
+
         transaction.voidTransaction();
         transaction = transactionRepository.save(transaction);
         logEvent(transactionId, "VOIDED", "Transaction voided");
@@ -334,6 +341,13 @@ public class PaymentService {
         refund.setReason(request.reason());
         refund.setStatus("COMPLETED");
         refundRepository.save(refund);
+
+        if (transaction.getWalletId() == null && transaction.getPspReference() != null) {
+            PspResult result = pspConnector.refund(transaction.getPspReference(), request.amount());
+            if (!result.isSuccess()) {
+                throw new IllegalStateException("PSP refund failed");
+            }
+        }
 
         walletTransactionRepository.findFirstByTransactionIdAndTypeOrderByCreatedAtDesc(transactionId, WALLET_DEBIT)
                 .ifPresent(debit -> {
