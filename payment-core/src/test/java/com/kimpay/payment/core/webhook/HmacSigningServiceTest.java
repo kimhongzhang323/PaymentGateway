@@ -32,6 +32,15 @@ class HmacSigningServiceTest {
     }
 
     @Test
+    void verify_acceptsSignatureWithSha256Prefix() {
+        String body = "payload-body";
+        long ts = System.currentTimeMillis() / 1000;
+        String bareHex = signer.sign(ts + "." + body, SECRET);
+        String prefixed = "sha256=" + bareHex;
+        assertThat(signer.verify(body, ts, prefixed, SECRET, 300)).isTrue();
+    }
+
+    @Test
     void verify_rejectsStaletimestamp() {
         String body = "payload";
         long staleTs = (System.currentTimeMillis() / 1000) - 400;

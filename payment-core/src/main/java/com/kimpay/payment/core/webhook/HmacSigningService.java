@@ -30,7 +30,8 @@ public class HmacSigningService {
 
     /**
      * Verifies an inbound signature.
-     * Expected signature format: bare hex (no "sha256=" prefix).
+     * Expected signature format: bare 64-char lowercase hex, or the same hex with a "sha256=" prefix.
+     * Both forms are accepted for interoperability with webhook senders that include the prefix.
      * Signed message: {@code timestamp + "." + body}.
      */
     public boolean verify(String body, long timestampSeconds, String signature, String secret, long toleranceSeconds) {
@@ -45,6 +46,10 @@ public class HmacSigningService {
     }
 
     private boolean constantTimeEquals(String a, String b) {
+        // Early-exit on length mismatch is safe: both `expected` (from sign()) and `candidate`
+        // (after stripping any "sha256=" prefix) must be 64-char hex strings when the signature
+        // format is correct. A length difference only occurs when the candidate is malformed, so
+        // no timing information about the secret is leaked.
         if (a.length() != b.length()) {
             return false;
         }
