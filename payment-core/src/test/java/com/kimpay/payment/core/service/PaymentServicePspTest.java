@@ -3,6 +3,7 @@ package com.kimpay.payment.core.service;
 import com.kimpay.payment.core.dto.CreatePaymentRequest;
 import com.kimpay.payment.core.dto.PaymentResponse;
 import com.kimpay.payment.core.dto.RefundPaymentRequest;
+import com.kimpay.payment.core.ledger.LedgerService;
 import com.kimpay.payment.core.psp.*;
 import com.kimpay.payment.core.repository.*;
 import com.kimpay.payment.domain.entity.Transaction;
@@ -22,6 +23,7 @@ class PaymentServicePspTest {
     private TransactionRepository txnRepo;
     private PaymentMethodRepository methodRepo;
     private RefundRepository refundRepo;
+    private LedgerService ledgerService;
     private PaymentService service;
 
     @BeforeEach
@@ -32,6 +34,7 @@ class PaymentServicePspTest {
         var walletTxnRepo = mock(WalletTransactionRepository.class);
         methodRepo = mock(PaymentMethodRepository.class);
         refundRepo = mock(RefundRepository.class);
+        ledgerService = mock(LedgerService.class);
         var logRepo = mock(TransactionLogRepository.class);
         var userRepo = mock(UserRepository.class);
         var merchantRepo = mock(MerchantRepository.class);
@@ -43,8 +46,12 @@ class PaymentServicePspTest {
         when(redis.opsForValue()).thenReturn(opsForValue);
         var redisson = mock(org.redisson.api.RedissonClient.class);
 
+        var txnFeeRepo = mock(TransactionFeeRepository.class);
+        when(txnFeeRepo.findAllByTransactionId(anyLong())).thenReturn(java.util.List.of());
+
         service = new PaymentService(txnRepo, walletRepo, walletTxnRepo, methodRepo, refundRepo,
-                logRepo, userRepo, merchantRepo, publisher, encryption, qr, redis, redisson, psp);
+                logRepo, userRepo, merchantRepo, publisher, encryption, qr, redis, redisson, psp,
+                txnFeeRepo, ledgerService);
 
         when(userRepo.existsById(anyLong())).thenReturn(true);
         when(merchantRepo.existsById(anyLong())).thenReturn(true);
