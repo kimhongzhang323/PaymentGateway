@@ -97,6 +97,7 @@
                     <skip>true</skip>
                 </configuration>
             </plugin>
+            <!-- Coverage report + ratchet gate (LINE >= 0.56 baseline) -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -110,7 +111,7 @@
                     </execution>
                     <execution>
                         <id>report</id>
-                        <phase>test</phase>
+                        <phase>verify</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
