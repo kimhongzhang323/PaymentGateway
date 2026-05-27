@@ -206,6 +206,14 @@ Card payments flow through a transport-agnostic **`PspConnector`** seam (in `pay
 - **Routing:** **wallet-backed** transactions (`Transaction.walletId != null`) use the internal ledger (Redisson + pessimistic DB lock); **card-backed** transactions route authorize/capture/void/refund through the connector.
 - **Lifecycle context:** `Transaction` persists `wallet_id` and `psp_reference` (Flyway `V4`). This lets a separated (authorize-then-capture) flow find the wallet to debit or the PSP reference to capture — closing the previously-deferred manual-capture gap — and `psp_reference` is the key for reconciling inbound PSP webhooks (Phase 2b).
 
+### 1c. QPS / Throughput Hardening (Phase 3a)
+
+Two overload-protection layers, neither of which can compromise money-correctness.
+
+- **Per-API-key rate limiting:** a `RateLimitFilter` (registered **after** `RequestSignatureFilter`, so the authenticated `MerchantPrincipal.keyId()` keys the bucket) uses **Bucket4j** token buckets over a **Redisson** distributed proxy manager, so limits hold across nodes. Buckets are keyed `payment:ratelimit:key:{keyId}`; tunables (`capacity`, `refill-tokens`, `refill-period`, per-key `overrides`) bind from `payment.ratelimit.*`. Over-limit → **HTTP 429** with the `{ "code": "SEC-002" }` envelope and a `Retry-After` header. **Fails open:** if the Redis backend is unreachable the filter allows the request (WARN log) rather than returning 5xx — the DB pessimistic row locks still guarantee zero overdraft / double-charge, so only abuse-protection (not correctness) degrades during a Redis outage. Public paths (`/actuator/health`, `/actuator/info`, `/api/webhooks/psp`) are exempt.
+- **PSP circuit breaker + timeout:** a `ResilientPspConnector` decorator (the `@Primary` `PspConnector`, wrapping a delegate bean named `pspDelegate`) applies **Resilience4j** `CircuitBreaker` + `TimeLimiter` (on a bounded executor) around every PSP call. Tunables bind from `payment.psp.resilience.*`. When the breaker is **OPEN** or a call times out, it throws `PspUnavailableException`, mapped by `ApiExceptionHandler` to **HTTP 503** with `{ "code": "NET-003" }` and `Retry-After` — a graceful "try again later" that holds no request thread and leaks no stack trace.
+- **Out of scope (3a):** the k6/Gatling load-test proof of the 1,000 TPS / p99 < 250 ms SLO is deferred to the Phase 3c QA slice.
+
 ### 2. Event-Driven Architecture (Apache Kafka)
 To keep the primary API fast, synchronous operations are restricted to critical validations and database commits. Post-transaction workloads are handled asynchronously via Kafka.
 - **Publisher:** `KafkaPaymentEventPublisher` uses Spring's `KafkaTemplate` to serialize `PaymentEvent` objects to JSON using Jackson.
