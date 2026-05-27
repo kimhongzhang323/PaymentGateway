@@ -3,6 +3,7 @@ package com.kimpay.payment.security;
 import com.kimpay.payment.core.security.NonceService;
 import com.kimpay.payment.core.service.ApiKeyService;
 import com.kimpay.payment.core.service.SignatureVerificationService;
+import io.github.bucket4j.distributed.proxy.ProxyManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,12 +31,15 @@ public class SecurityConfig {
             NonceService nonceService,
             RestAuthEntryPoint restAuthEntryPoint,
             @Value("${payment.security.timestamp-tolerance-seconds:300}") long toleranceSeconds,
-            @Value("${payment.security.max-body-bytes:1048576}") long maxBodyBytes
+            @Value("${payment.security.max-body-bytes:1048576}") long maxBodyBytes,
+            ProxyManager<String> rateLimitProxyManager,
+            RateLimitProperties rateLimitProperties
     ) throws Exception {
 
         ApiKeyAuthFilter apiKeyAuthFilter = new ApiKeyAuthFilter(apiKeyService);
         RequestSignatureFilter signatureFilter =
                 new RequestSignatureFilter(signatureVerificationService, nonceService, toleranceSeconds, maxBodyBytes);
+        RateLimitFilter rateLimitFilter = new RateLimitFilter(rateLimitProxyManager, rateLimitProperties);
 
         http
             .csrf(AbstractHttpConfigurer::disable)
@@ -46,7 +50,8 @@ public class SecurityConfig {
                 .anyRequest().authenticated())
             .exceptionHandling(eh -> eh.authenticationEntryPoint(restAuthEntryPoint))
             .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(signatureFilter, ApiKeyAuthFilter.class);
+            .addFilterAfter(signatureFilter, ApiKeyAuthFilter.class)
+            .addFilterAfter(rateLimitFilter, RequestSignatureFilter.class);
 
         return http.build();
     }

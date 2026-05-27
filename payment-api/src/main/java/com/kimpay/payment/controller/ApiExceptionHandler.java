@@ -1,8 +1,10 @@
 package com.kimpay.payment.controller;
 
 import com.kimpay.payment.constant.ErrorCode;
+import com.kimpay.payment.core.psp.PspUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -52,6 +54,16 @@ public class ApiExceptionHandler {
         log.warn("Ownership check failed");
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(ErrorCode.RESOURCE_NOT_FOUND.code(), ErrorCode.RESOURCE_NOT_FOUND.message()));
+    }
+
+    @ExceptionHandler(PspUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handlePspUnavailable(PspUnavailableException ex) {
+        // Breaker open or PSP timeout: graceful 503, no stack trace, no partial charge.
+        log.warn("PSP unavailable (breaker open or timeout)");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
+                .body(new ErrorResponse(ErrorCode.SERVICE_UNAVAILABLE.code(),
+                        ErrorCode.SERVICE_UNAVAILABLE.message()));
     }
 
     @ExceptionHandler(Exception.class)

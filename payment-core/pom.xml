@@ -75,6 +75,16 @@
             <artifactId>redisson-spring-boot-starter</artifactId>
             <version>3.45.0</version>
         </dependency>
+
+        <!-- Resilience4j: circuit breaker + time limiter for PSP decorator (version managed by BOM) -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-circuitbreaker</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-timelimiter</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
