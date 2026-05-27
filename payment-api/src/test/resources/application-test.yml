@@ -41,6 +41,8 @@ payment:
     key-base64: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
   kafka:
     enabled: false
+  webhook:
+    psp-secret: test-psp-webhook-secret
 
 # Logging
 logging:

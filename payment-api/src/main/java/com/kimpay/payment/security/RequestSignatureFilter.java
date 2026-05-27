@@ -20,6 +20,12 @@ public class RequestSignatureFilter extends OncePerRequestFilter {
 
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS", "TRACE");
 
+    /**
+     * Paths that carry their own authentication/verification scheme (e.g. PSP HMAC signature)
+     * and must NOT be subjected to the merchant request-signature filter.
+     */
+    private static final Set<String> EXCLUDED_PATHS = Set.of("/api/webhooks/psp");
+
     private final SignatureVerificationService signatureService;
     private final NonceService nonceService;
     private final long toleranceSeconds;
@@ -35,10 +41,11 @@ public class RequestSignatureFilter extends OncePerRequestFilter {
         this.maxBodyBytes = maxBodyBytes;
     }
 
-    /** Sign every non-safe method (POST, PUT, PATCH, DELETE, ...); skip safe read methods. */
+    /** Skip safe read methods and explicitly excluded paths (e.g. inbound PSP webhook). */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return SAFE_METHODS.contains(request.getMethod());
+        return SAFE_METHODS.contains(request.getMethod())
+                || EXCLUDED_PATHS.contains(request.getRequestURI());
     }
 
     @Override
