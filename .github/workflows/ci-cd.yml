@@ -134,15 +134,6 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v4
-      - name: Download jar
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/download-artifact@v4
-        with:
-          name: payment-api-jar
-          path: payment-api/target/
-      - name: Build jar (PR runs without the uploaded artifact)
-        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
-        run: ./mvnw -pl payment-api -am package -DskipTests -B
       - name: Build Docker image
         run: docker build -t kimpay/payment-api:ci -f payment-api/Dockerfile .
       - name: Trivy image scan (advisory)
