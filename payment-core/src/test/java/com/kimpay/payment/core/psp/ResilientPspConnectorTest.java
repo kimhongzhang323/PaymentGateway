@@ -4,10 +4,12 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.timelimiter.TimeLimiterConfig;
 import io.github.resilience4j.timelimiter.TimeLimiterRegistry;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,6 +18,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class ResilientPspConnectorTest {
+
+    private ExecutorService executor;
+
+    @AfterEach
+    void tearDown() {
+        if (executor != null) {
+            executor.shutdownNow();
+        }
+    }
 
     private ResilientPspConnector newConnector(PspConnector delegate, int minCalls) {
         CircuitBreakerRegistry cbReg = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
@@ -27,10 +38,11 @@ class ResilientPspConnectorTest {
                 .build());
         TimeLimiterRegistry tlReg = TimeLimiterRegistry.of(TimeLimiterConfig.custom()
                 .timeoutDuration(Duration.ofMillis(200)).build());
+        executor = Executors.newFixedThreadPool(2);
         return new ResilientPspConnector(delegate,
                 cbReg.circuitBreaker("psp"),
                 tlReg.timeLimiter("psp"),
-                Executors.newFixedThreadPool(2),
+                executor,
                 30);
     }
 

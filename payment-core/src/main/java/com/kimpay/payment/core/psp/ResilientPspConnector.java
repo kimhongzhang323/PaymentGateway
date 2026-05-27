@@ -59,8 +59,9 @@ public class ResilientPspConnector implements PspConnector {
 
     /**
      * Runs the supplier under TimeLimiter (on a bounded executor) then CircuitBreaker.
-     * Breaker-open / timeout become {@link PspUnavailableException}; the delegate's own
-     * exceptions are unwrapped and rethrown so callers see the real failure.
+     * Breaker-open / timeout / interruption become {@link PspUnavailableException}; the
+     * delegate's own {@code RuntimeException}s propagate unchanged so callers see the real
+     * failure, while any checked exception is wrapped in {@link IllegalStateException}.
      */
     private PspResult guarded(Supplier<PspResult> call) {
         Supplier<CompletableFuture<PspResult>> futureSupplier =
@@ -69,10 +70,15 @@ public class ResilientPspConnector implements PspConnector {
             return circuitBreaker.executeCallable(
                     () -> timeLimiter.executeFutureSupplier(futureSupplier));
         } catch (CallNotPermittedException e) {
+            // CallNotPermittedException is a RuntimeException — must be caught before the
+            // generic RuntimeException branch below.
             log.warn("[psp] circuit breaker OPEN - short-circuiting call");
             throw new PspUnavailableException(retryAfterSeconds, e);
         } catch (TimeoutException e) {
             log.warn("[psp] call timed out");
+            throw new PspUnavailableException(retryAfterSeconds, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new PspUnavailableException(retryAfterSeconds, e);
         } catch (RuntimeException e) {
             throw e;
