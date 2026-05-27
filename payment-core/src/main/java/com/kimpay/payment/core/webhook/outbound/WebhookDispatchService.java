@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
@@ -27,12 +28,24 @@ public class WebhookDispatchService {
     private final HmacSigningService hmac;
     private final RestClient restClient;
 
+    @Transactional
     public void dispatch(WebhookDelivery delivery) {
         WebhookEndpoint endpoint = endpointRepo.findById(delivery.getEndpointId()).orElse(null);
         if (endpoint == null) {
             log.error("Endpoint {} not found for delivery {} — marking DEAD", delivery.getEndpointId(), delivery.getId());
             delivery.setStatus(WebhookDeliveryStatus.DEAD.name());
             delivery.setLastResponse("Endpoint not found");
+            deliveryRepo.save(delivery);
+            return;
+        }
+
+        // Defense in depth: registration enforces HTTPS, but never dispatch a secret-signed
+        // payload over plaintext HTTP. Allow http://localhost only for tests/local stubs.
+        String url = endpoint.getUrl();
+        if (!url.startsWith("https://") && !url.startsWith("http://localhost")) {
+            log.error("Endpoint {} url is not HTTPS — marking delivery {} DEAD", endpoint.getId(), delivery.getId());
+            delivery.setStatus(WebhookDeliveryStatus.DEAD.name());
+            delivery.setLastResponse("Endpoint URL must use HTTPS");
             deliveryRepo.save(delivery);
             return;
         }

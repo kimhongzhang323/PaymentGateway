@@ -1,5 +1,6 @@
 package com.kimpay.payment.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kimpay.payment.core.webhook.inbound.PspWebhookPayload;
 import com.kimpay.payment.core.webhook.inbound.PspWebhookService;
@@ -22,8 +23,13 @@ public class PspWebhookController {
             @RequestHeader("X-Kimpay-Signature") String signature,
             @RequestHeader("X-Kimpay-Timestamp") long timestamp,
             @RequestBody String rawBody
-    ) throws Exception {
-        PspWebhookPayload payload = objectMapper.readValue(rawBody, PspWebhookPayload.class);
+    ) {
+        PspWebhookPayload payload;
+        try {
+            payload = objectMapper.readValue(rawBody, PspWebhookPayload.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Malformed webhook payload");
+        }
         pspWebhookService.process(payload, rawBody, signature, timestamp);
         return ResponseEntity.ok().build();
     }

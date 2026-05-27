@@ -1,6 +1,7 @@
 package com.kimpay.payment.core.service;
 
 import com.kimpay.payment.core.dto.RegisterWebhookEndpointRequest;
+import com.kimpay.payment.core.dto.WebhookEndpointView;
 import com.kimpay.payment.core.repository.WebhookEndpointRepository;
 import com.kimpay.payment.domain.entity.WebhookEndpoint;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +33,10 @@ public class WebhookEndpointService {
     }
 
     @Transactional(readOnly = true)
-    public List<WebhookEndpoint> list(Long merchantId) {
-        return endpointRepository.findByMerchantId(merchantId);
+    public List<WebhookEndpointView> list(Long merchantId) {
+        return endpointRepository.findByMerchantId(merchantId).stream()
+                .map(ep -> new WebhookEndpointView(ep.getId(), ep.getUrl(), ep.isEnabled(), ep.getCreatedAt()))
+                .toList();
     }
 
     @Transactional
