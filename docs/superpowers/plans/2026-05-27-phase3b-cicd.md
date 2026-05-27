@@ -195,10 +195,13 @@ In `payment-api/pom.xml`, inside `<build><plugins>` (after the spring-boot-maven
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
+            <version>${flyway.version}</version>
         </dependency>
     </dependencies>
 </plugin>
 ```
+
+> Note: the plugin *dependency* needs an explicit `<version>` — Maven does not apply the parent's `dependencyManagement` to plugin-level dependencies. `${flyway.version}` is parent-managed (resolves to 11.7.2), so it stays in sync with `flyway-core`. The plugin itself still inherits its version from the Spring Boot parent.
 
 - [ ] **Step 3: Verify migrations apply against a real Postgres locally**
 
