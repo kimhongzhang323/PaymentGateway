@@ -74,6 +74,19 @@ payment:
   kafka:
     enabled: ${PAYMENT_KAFKA_ENABLED:true}
     payment-topic: ${PAYMENT_KAFKA_TOPIC:payment.events}
+  ratelimit:
+    enabled: true
+    capacity: 100
+    refill-tokens: 50
+    refill-period: 1s
+  psp:
+    resilience:
+      timeout: 3s
+      failure-rate-threshold: 50
+      sliding-window-size: 20
+      minimum-number-of-calls: 10
+      wait-duration-in-open-state: 30s
+      permitted-calls-in-half-open-state: 3
 
 # Logging Configuration
 logging:
