@@ -100,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy dependency scan (HIGH/CRITICAL fail)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -146,7 +146,7 @@ jobs:
       - name: Build Docker image
         run: docker build -t kimpay/payment-api:ci -f payment-api/Dockerfile .
       - name: Trivy image scan (advisory)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: kimpay/payment-api:ci
