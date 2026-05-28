@@ -8,9 +8,33 @@ on:
 
 jobs:
   build-test:
-    # Tests today are H2 + mocks (see application-test.yml); no Postgres/Redis services
-    # needed here. Real-infra integration tests will live in `*IT` under Failsafe in 3c.
+    # Integration tests (RateLimitIntegrationTest, SecuredPaymentE2ETest, ...) load a
+    # full Spring context including Redisson; they need real Redis. Postgres is here
+    # for parity with future Testcontainers-backed *IT tests (3c).
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: payment_gateway
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 17
@@ -58,6 +82,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: maven
+      # flyway:migrate runs only on payment-api but the POM declares compile-scope
+      # dependencies on the sibling modules — Maven must resolve those before invoking
+      # the plugin. Installing the upstream modules (skipping their tests) makes the
+      # JARs available; the flyway step then runs in isolation.
+      - name: Install sibling modules
+        run: ./mvnw -pl payment-common,payment-domain,payment-core -am install -DskipTests -B
       - name: Validate migrations against PostgreSQL
         run: >-
           ./mvnw -pl payment-api flyway:migrate -B
@@ -70,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy dependency scan (HIGH/CRITICAL fail)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -116,7 +146,7 @@ jobs:
       - name: Build Docker image
         run: docker build -t kimpay/payment-api:ci -f payment-api/Dockerfile .
       - name: Trivy image scan (advisory)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           scan-type: image
           image-ref: kimpay/payment-api:ci

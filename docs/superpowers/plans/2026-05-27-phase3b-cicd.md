@@ -492,7 +492,7 @@ In GitHub repo Settings → Branches → branch-protection rule for `main`, add 
 
 - [ ] **Step 4: Verify a gate blocks (optional sanity check)**
 
-Push a throwaway commit that plants a fake secret (e.g. `aws_secret_access_key = AKIA...` in a scratch file) to confirm `secret-scan` fails, then revert it. Do NOT merge the throwaway commit.
+Push a throwaway commit that plants a fake high-entropy token-like string in a scratch file (use a Gitleaks-known test pattern, NOT a real cloud-provider key prefix — secret scanners flag those in docs too) to confirm `secret-scan` fails, then revert it. Do NOT merge the throwaway commit.
 Expected: `secret-scan` job fails on the planted secret; passes again after revert.
 
 ---
