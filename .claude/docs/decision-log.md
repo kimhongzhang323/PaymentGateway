@@ -4,6 +4,22 @@ Architectural decisions for KimPay. Newest first. Each entry: context → decisi
 
 ---
 
+## 2026-05-27 — Phase 3b: CI quality gates
+
+**Context:** Production-readiness needs CI that blocks unsafe merges. Prior CI was a single H2 build + advisory Qodana + an unpushed docker build. Sandbox-grade with no live deploy target, so 3b stops at CI gates — environment deploy/staging/prod promotion and image publish are deferred. `feat/phase3b-cicd`.
+
+**Decision:** Restructured `.github/workflows/ci-cd.yml` into six parallel jobs. **Hard-fail gates:** `build-test` (`./mvnw clean verify -B` — Surefire + Failsafe + JaCoCo coverage `check` on payment-core), `migration-validation` (Flyway `migrate` against a real Postgres service — catches PostgreSQL-only drift that H2 tests miss; the service's `POSTGRES_DB=payment_gateway` pre-creates the DB since Flyway does not), `dependency-scan` (`trivy fs`, HIGH/CRITICAL, `exit-code 1`), `secret-scan` (Gitleaks, full history). **Advisory:** Qodana (`continue-on-error`) and `image-build-scan` (`trivy image`, SARIF upload, no block, no registry push). Tooling = Trivy-centric + Java-native (Approach A): rejected OWASP Dependency-Check (slow/flaky NVD, needs API key) and GitHub-native dependency-review (PR-diff only — would miss the existing Bucket4j/Resilience4j CVEs). `.trivyignore` is the documented+dated escape hatch (starts comment-only). The Failsafe `*IT` seam is wired now (no `*IT` exist yet); Testcontainers migration of the H2 suite is deferred to 3c.
+
+**Coverage gate — ratchet-from-baseline:** measured payment-core line coverage baseline is **56.54%** (415/734 lines). Per the spec policy (pin at 80% if already there, else at the measured floor), the JaCoCo `check` minimum is set to **0.56**. This blocks regression from day one; a 3c follow-up ratchets toward 80% as test coverage is added.
+
+**Build deviation:** the Flyway plugin's `flyway-database-postgresql` *dependency* needs an explicit `<version>` — Maven does not apply the parent's `dependencyManagement` to plugin-level dependencies. Used `${flyway.version}` (parent-managed, resolves to 11.7.2) so it stays in sync with `flyway-core`.
+
+**Manual step (not in-repo config):** the four hard-fail jobs (`build-test`, `migration-validation`, `dependency-scan`, `secret-scan`) must be added as **required status checks** on `main` in GitHub branch-protection settings for the gates to actually block merges. Until then they run but do not enforce.
+
+**Consequences:** Closes 3a-audit **M4** (Bucket4j 8.14.0 / Resilience4j 2.3.0 now CVE-scanned). 3c follow-ups: ratchet coverage from 0.56 toward 0.80; Testcontainers integration profile + migrating infra-dependent tests off H2. Image publish to GHCR and any environment deploy remain deferred until real infra exists.
+
+---
+
 ## 2026-05-25 — Roadmap: sandbox-grade, security-first, phased
 **Context:** Goal is an industry-competitive, *secured* payment gateway. Current code is a clean demo missing auth, real rails, ledger, and ops maturity.
 **Decision:** Target **sandbox-grade** (real PSP test integrations, no live money), backend-only. Sequence: **Phase 1 security → Phase 2 payment completeness → Phase 3 production readiness** (incl. QPS handling, full CI/CD, full QA plan). Each phase is spec → plan → implementation.

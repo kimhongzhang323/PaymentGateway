@@ -14,6 +14,12 @@
     <name>api</name>
     <description>API module (Spring Boot application)</description>
 
+    <properties>
+        <flyway.url>jdbc:postgresql://localhost:5432/payment_gateway</flyway.url>
+        <flyway.user>postgres</flyway.user>
+        <flyway.password>postgres</flyway.password>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -143,6 +149,24 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <configuration>
+                    <url>${flyway.url}</url>
+                    <user>${flyway.user}</user>
+                    <password>${flyway.password}</password>
+                    <locations>filesystem:src/main/resources/db/migration</locations>
+                    <cleanDisabled>true</cleanDisabled>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.flywaydb</groupId>
+                        <artifactId>flyway-database-postgresql</artifactId>
+                        <version>${flyway.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>

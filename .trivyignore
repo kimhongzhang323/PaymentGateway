@@ -1,0 +1,8 @@
+# Trivy ignore file — documented, dated exceptions only.
+# Each entry MUST carry: CVE id, why it is unfixable here, and an expiry date.
+# An empty (comment-only) file is the desired end state — entries are debt.
+#
+# Format:
+#   CVE-YYYY-NNNNN  # reason; revisit by YYYY-MM-DD
+#
+# (no active exceptions)
